@@ -3,8 +3,9 @@ use lazy_static::*;
 
 ///Lexer token
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub enum LexToken {
-    Paran(char),
+    Paren(char),
     SemiColon,
     Operator(&'static str),
     Keyword(&'static str),
@@ -53,6 +54,10 @@ impl LexedProgram {
 
     pub fn push(&mut self, token: LexToken, location: Location) {
         self.program.push((token, location))
+    }
+
+    pub fn iter(&self) -> Peekable<std::slice::Iter<(LexToken, Location)>> {
+        self.program.iter().peekable()
     }
 }
 
@@ -126,7 +131,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
 
             //Match chars
             match char {
-                '('|')'|'{'|'}' => program.push(LexToken::Paran(char), loc),
+                '('|')'|'{'|'}' => program.push(LexToken::Paren(char), loc),
                 ';' => program.push(LexToken::SemiColon, loc),
 
                 ' ' | '\t' => {}

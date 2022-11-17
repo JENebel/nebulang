@@ -1,11 +1,13 @@
+use std::fmt::Display;
+
 pub enum Exp {
-    BinOpExp(Exp, Operator, Exp),
-    UnOpExp(Operator, Exp),
+    BinOpExp(Box<Exp>, Operator, Box<Exp>),
+    UnOpExp(Operator, Box<Exp>),
     LiteralExp(Literal),
     BlockExp(Vec<Exp>),
 
     ///Condition, if true, else
-    IfElseExp(Exp, Exp, Exp)
+    IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>)
 }
 
 pub enum Literal {
@@ -26,8 +28,20 @@ pub enum Operator {
     GreaterOrEquals
 }
 
+impl Display for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            match self {
+                Literal::Int(i) => i.to_string(),
+                Literal::Float(f) => f.to_string(),
+                Literal::Bool(b) => b.to_string()
+            }
+        )
+    }
+}
+
 impl Exp {
-    pub fn evaluate() {
-        
+    pub fn evaluate(&self) -> Literal {
+        Literal::Bool(true)
     }
 }
