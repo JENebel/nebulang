@@ -29,7 +29,7 @@ lazy_static!(
     ];
 
     pub static ref TERMINATORS: Vec<LexToken> = vec![
-        Paren(';'),
+        SemiColon,
         Paren(')'),
         Paren('}'),
         Paren(']'),
@@ -56,7 +56,7 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
         let loc = &peek.1;
 
         if TERMINATORS.contains(token) {
-            if token == &SemiColon {
+            if *token == SemiColon {
                 lexed.next();
             }
             break;
@@ -129,7 +129,7 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
             },
             Float(_) => todo!(),
             Bool(_) => todo!(),
-            _ => todo!(),
+            p => {println!("Dont know this: {p:?}"); panic!()},
         };
     }
 

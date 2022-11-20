@@ -85,7 +85,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
     while let Some(&c) = iter.peek() {
         let loc = Location {
             line, 
-            loc: (c.0 - line_loc) as u32
+            loc: (c.0 - line_loc + 1) as u32
         };
 
         let rest = &input[c.0..];

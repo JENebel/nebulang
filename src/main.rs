@@ -26,14 +26,13 @@ fn main() {
             match prog {
                 Ok(res) => {
                     let program = res.0;
-                    println!("{program:?}");
                     println!("{program}");
                     
                     //let res = program.evaluate();
 
                     //println!("Returned: {}", res)
                 },
-                Err(e) => println!("\"{}\" at {}", e.0, e.1),
+                Err(e) => println!("{} at {}", e.0, e.1),
             }
         },
         Err(e) => println!("{e}"),
