@@ -21,17 +21,19 @@ fn main() {
         Ok(p) => {
             println!("{p}");
             
-            let prog = parse(p);
+            let prog = parse(p.iter());
 
             match prog {
-                Ok(program) => {
-                    //println!("{program}");
+                Ok(res) => {
+                    let program = res.0;
+                    println!("{program:?}");
+                    println!("{program}");
                     
-                    let res = program.evaluate();
+                    //let res = program.evaluate();
 
-                    println!("Returned: {}", res)
+                    //println!("Returned: {}", res)
                 },
-                Err(e) => println!("{e}"),
+                Err(e) => println!("\"{}\" at {}", e.0, e.1),
             }
         },
         Err(e) => println!("{e}"),

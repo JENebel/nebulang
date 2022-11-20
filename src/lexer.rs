@@ -1,5 +1,6 @@
 use std::{iter::Peekable, fmt::Display};
 use lazy_static::*;
+use crate::parser::*;
 
 ///Lexer token
 #[derive(Debug)]
@@ -15,24 +16,15 @@ pub enum LexToken {
     Int(i64),
     Float(f64),
     Bool(bool),
-
-    //Only for parser use
-    AnyExp
 }
 
 lazy_static! {
-    ///All legal operators
-    pub static ref OPERATORS: Vec<&'static str> = Vec::from(["+", "-", "*", "/", "<=", ">=", "<", ">", "==", "="]);
-
-    ///All legal keywords
-    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for"]);
-
-
-
     ///First char of every operator
     static ref OP_FIRST: Vec<char> = OPERATORS.iter().map(|op| op.chars().next().unwrap()).collect();
 }
 
+#[derive(Debug)]
+#[derive(Copy, Clone)]
 pub struct Location {
     line: u32,
     loc: u32
@@ -79,7 +71,7 @@ impl Display for LexedProgram {
             let token = &entry.0;
             write!(f, " {token:?}").expect("Should be ok here");
         }
-        writeln!(f)
+        write!(f, "")
     }
 }
 
@@ -142,7 +134,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
 
             //Match chars
             match char {
-                '('|')'|'{'|'}' => program.push(LexToken::Paren(char), loc),
+                '('|')'|'{'|'}'|'['|']' => program.push(LexToken::Paren(char), loc),
                 ';' => program.push(LexToken::SemiColon, loc),
 
                 ' ' | '\t' => {}
