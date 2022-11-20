@@ -14,7 +14,10 @@ pub enum LexToken {
     //Literals
     Int(i64),
     Float(f64),
-    Bool(bool)
+    Bool(bool),
+
+    //Only for parser use
+    AnyExp
 }
 
 lazy_static! {
@@ -58,6 +61,14 @@ impl LexedProgram {
 
     pub fn iter(&self) -> Peekable<std::slice::Iter<(LexToken, Location)>> {
         self.program.iter().peekable()
+    }
+
+    pub fn get_token(&self, index: usize) -> &LexToken {
+        &self.program[index].0
+    }
+
+    pub fn get_location(&self, index: usize) -> &Location {
+        &self.program[index].1
     }
 }
 

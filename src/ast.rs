@@ -1,13 +1,15 @@
 use std::fmt::Display;
 
+use crate::lexer::Location;
+
 pub enum Exp {
-    BinOpExp(Box<Exp>, Operator, Box<Exp>),
-    UnOpExp(Operator, Box<Exp>),
-    LiteralExp(Literal),
-    BlockExp(Vec<Exp>),
+    BinOpExp(Box<Exp>, Operator, Box<Exp>, Location),
+    UnOpExp(Operator, Box<Exp>, Location),
+    LiteralExp(Literal, Location),
+    BlockExp(Vec<Exp>, Location),
 
     ///Condition, if true, else
-    IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>)
+    IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>, Location)
 }
 
 pub enum Literal {
@@ -25,7 +27,8 @@ pub enum Operator {
     GreaterThan,
     Equals,
     LessOrEquals,
-    GreaterOrEquals
+    GreaterOrEquals,
+    Assign
 }
 
 impl Display for Literal {

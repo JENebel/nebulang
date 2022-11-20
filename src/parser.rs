@@ -1,33 +1,50 @@
-use std::iter::Peekable;
+use std::{iter::Peekable, slice::Iter};
 
 use super::*;
 use lazy_static::*;
 
-//Parse rules
-lazy_static! {
-    ///All tokens terminating a statement
-    pub static ref TERMINATORS: Vec<LexToken> = Vec::from([LexToken::SemiColon, LexToken::Paren('}')]);
+pub fn parse(lexed: Peekable<Iter<(LexToken, Location)>>) -> Result<Exp, String> {
+    let mut v: Vec<Box<dyn Parser>> = Vec::new();
+
+    //parse_paren(lexed, );
+
+    Err("sad".to_string())
 }
 
-pub fn parse(lexed: LexedProgram) -> Result<Exp, String> {
-    let mut iter = lexed.iter();
-
-    parse_block(&mut iter)
+pub trait Parser {
+    fn parse(&self, lexed: Peekable<Iter<(LexToken, Location)>>) -> Result<(Exp, Peekable<Iter<(LexToken, Location)>>), String>;
 }
 
-fn parse_block(iter: &mut Peekable<std::slice::Iter<(LexToken, Location)>>) -> Result<Exp, String> {
-    
-    while let Some(token) = iter.peek() {
-        if token.0 == LexToken::Paren('}') { break }
+pub struct IntParser { }
 
-        
+impl Parser for IntParser {
+    fn parse(&self, lexed: Peekable<Iter<(LexToken, Location)>>) -> Result<(Exp, Peekable<Iter<(LexToken, Location)>>), String> {
+        let mut lexed = lexed.clone();
+        match lexed.peek() {
+            Some((LexToken::Int(i), loc)) => { lexed.next(); Ok((Exp::LiteralExp(Literal::Int(*i), *loc), lexed)) },
+            _ => Err(format!("Expected an int at: , got ")),
+        }
     }
-
-
-    Ok(Exp::BlockExp(Vec::new()))
 }
 
-fn parse_statement(iter: &mut Peekable<std::slice::Iter<(LexToken, Location)>>) -> Result<Exp, String> {
+fn parse_paren(lexed: Peekable<Iter<(LexToken, Location)>>) -> Result<(Exp, Peekable<Iter<(LexToken, Location)>>), String>  {
+    Err(format!(""))
+}
 
-    Ok(Exp::BlockExp(Vec::new()))
+/*fn parse_int(chars: &str, index: usize) -> Result<Exp, String> {
+    match chars. {
+        LexToken::Int(i) => Ok(Exp::LiteralExp(Literal::Int(*i), *lexed.get_location(index))),
+        _ => Err(format!("Not a number {}", chars.get_location(index)))
+    }
+}*/
+
+
+
+//Generic parser
+fn parse_exp<F, T> (parse: F, lexed: Peekable<Iter<(LexToken, Location)>>) -> Result<Exp, String> 
+    where F: Fn(Peekable<Iter<(LexToken, Location)>>) -> Result<(Exp, Peekable<Iter<(LexToken, Location)>>), String> {
+    
+    let a = lexed.clone();
+
+    Err(format!(""))
 }
