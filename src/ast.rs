@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, format};
 
 use crate::lexer::Location;
 
@@ -57,8 +57,18 @@ impl Display for Exp {
                 Exp::BinOpExp(left, op, right, _) => format!("({left} {op} {right})"),
                 Exp::UnOpExp(op, exp, _) => format!("{op} {exp}"),
                 Exp::LiteralExp(lit, _) => format!("{lit}"),
-                Exp::BlockExp(_, _) => todo!(),
-                Exp::IfElseExp(_, _, _, _) => todo!(),
+                Exp::BlockExp(exps, _) => {
+                    let mut res = format!("{{");
+                    for exp in exps {
+                        res = format!("{res}\n {exp}")
+                    }
+                    res = format!("{res}\n}}");
+                    res
+                },
+                Exp::IfElseExp(cond, pos, neg, _) => match neg {
+                    Some(neg) => format!("if({cond}) {pos} else {neg}"),
+                    None => format!("if({cond}) {pos}"),
+                },
             }
         )
     }

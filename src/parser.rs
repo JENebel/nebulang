@@ -33,6 +33,7 @@ lazy_static!(
         Paren(')'),
         Paren('}'),
         Paren(']'),
+        Keyword("else")
     ];
 );
 
@@ -69,8 +70,11 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
                     "for" => parse_for(lexed),
                     _ => Err((format!("Unknown keyword '{kwd}'"), *loc))
                 } {
-                    Ok(_) => {todo!()},
-                    Err(_) => {todo!()},
+                    Ok((exp, rest)) => {
+                        terms.push((Term::ExpTerm(exp), *loc));
+                        lexed = rest;
+                    },
+                    Err(err) => return Err(err),
                 }
             }
             Paren('(') => {
@@ -89,7 +93,13 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
                     Err(err) => return Err(err),
                 };
             },
-            Paren('{') => todo!(),//match parse_block(lexed) {},
+            Paren('{') => match parse_block(lexed) {
+                Ok((exp, rest)) => {
+                    terms.push((Term::ExpTerm(exp), *loc));
+                    lexed = rest;
+                },
+                Err(err) => return Err(err)
+            },
             LexToken::Operator(_) => {
                 if PRECEDENCE[0].contains(token) {
                     //Is unary
@@ -172,7 +182,7 @@ fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexe
         while let Some(entry) = terms.peek() {
             let term = &entry.0;
             let loc = &entry.1;
-            //println!("left_side: {left_side:?}");
+            
             match term {
                 Term::OpTerm(op) => {
                     if PRECEDENCE[level].contains(op) {
@@ -202,6 +212,14 @@ fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexe
     unreachable!()
 }
 
+fn current_loc(lexed: &LexIter) -> Location {
+    let mut lexed = lexed.clone();
+    match lexed.peek() {
+        Some((_, loc)) => *loc,
+        None => panic!("Could not get location"),
+    }
+}
+
 fn parse_operator(op: &LexToken) -> ast::Operator {
     match op {
         LexToken::Operator(op) => match *op {
@@ -227,7 +245,56 @@ fn parse_simple(lexed: LexIter) -> ParseRes {
 }
 
 fn parse_if(lexed: LexIter) -> ParseRes {
-    todo!();
+    let mut lexed = lexed.clone();
+    
+    //Get rid of keyword
+    let loc = match lexed.peek() {
+        Some((Keyword("if"), loc)) => loc,
+        _ => panic!("There should be an if here"),
+    };
+
+    lexed.next();
+
+    match parenthesis(lexed, '(') {
+        Ok(rest) => lexed = rest,
+        Err(err) => return Err(err),
+    }
+
+    let cond = match parse_exp(lexed) {
+        Ok((exp, rest)) => {
+            lexed = rest;
+            exp
+        },
+        Err(err) => return Err(err),
+    };
+
+    match parenthesis(lexed, ')') {
+        Ok(rest) => lexed = rest,
+        Err(err) => return Err(err),
+    }
+
+    let pos = match parse_exp(lexed) {
+        Ok((exp, rest)) => {
+            lexed = rest;
+            exp
+        },
+        Err(err) => return Err(err),
+    };
+
+    match lexed.peek() {
+        Some((Keyword("else"), _)) => { lexed.next(); },
+        _ => return Ok((Exp::IfElseExp(Box::new(cond), Box::new(pos), None, *loc), lexed))
+    }
+
+    let neg = match parse_exp(lexed) {
+        Ok((exp, rest)) => {
+            lexed = rest;
+            exp
+        },
+        Err(err) => return Err(err),
+    };
+    
+    Ok((Exp::IfElseExp(Box::new(cond), Box::new(pos), Some(Box::new(neg)), *loc), lexed))
 }
 
 fn parse_while(lexed: LexIter) -> ParseRes {
@@ -239,7 +306,37 @@ fn parse_for(lexed: LexIter) -> ParseRes {
 }
 
 fn parse_block(lexed: LexIter) -> ParseRes {
-    todo!();
+    let mut lexed = lexed.clone();
+    let loc = current_loc(&lexed);
+
+    match parenthesis(lexed, '{') {
+        Ok(rest) => {
+            lexed = rest
+        },
+        Err(err) => return Err(err),
+    };
+
+    let mut exps: Vec<Exp> = Vec::new();
+
+    while let Some(token) = lexed.peek() {
+        match token {
+            (LexToken::Paren('}'), _) => {
+                lexed.next();
+                return Ok((Exp::BlockExp(exps, loc), lexed));
+            },
+            _ => {}
+        }
+
+        match parse_exp(lexed) {
+            Ok((exp, rest)) => {
+                lexed = rest;
+                exps.push(exp)
+            },
+            Err(err) => return Err(err),
+        }
+    }
+
+    Err((format!("Unmatched '{{'"), loc))
 }
 
 fn parse_int(lexed: LexIter) -> ParseRes {
