@@ -12,10 +12,10 @@ type ParseRes<'a> = Result<(Exp, LexIter<'a>), (String, Location)>;
 
 lazy_static!(
     ///All legal operators
-    pub static ref OPERATORS: Vec<&'static str> = Vec::from(["+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!", "==", "!=", "="]);
+    pub static ref OPERATORS: Vec<&'static str> = Vec::from(["+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
 
     ///All legal keywords
-    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else",   "while", "for", "let", "fun"]);
+    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun"]);
 
     pub static ref PRECEDENCE: Vec<Vec<LexToken>> = vec![
         //Unary
@@ -25,6 +25,9 @@ lazy_static!(
         vec![Operator("*"), Operator("/"), Operator("%")],  
         vec![Operator("+"), Operator("-")],
         vec![Operator("<"), Operator(">"), Operator("<="), Operator(">="), Operator("==")],
+        vec![Operator("=="), Operator("!=")],
+        vec![Operator("&&")],
+        vec![Operator("||")],
         vec![Operator("="), Operator("+="), Operator("-=")],
     ];
 
@@ -33,7 +36,12 @@ lazy_static!(
         Paren(')'),
         Paren('}'),
         Paren(']'),
-        Keyword("else")
+        Keyword("else"),
+        EndOfInput
+    ];
+
+    pub static ref VALUE_KEYWORDS: Vec<LexToken> = vec![
+        Keyword("if"),
     ];
 );
 
@@ -44,22 +52,27 @@ enum Term<'a> {
 }
 
 pub fn parse(lexed: LexIter) -> ParseRes {
-    parse_exp(lexed)
+    parse_block(lexed, false)
 }
 
 fn parse_exp(lexed: LexIter) -> ParseRes {
     let mut lexed = lexed.clone();
     let mut terms: Vec<(Term, Location)> = Vec::new();
+    let loc = curr_loc(&lexed);
 
     while let Some(peek) = lexed.peek() {
         let token = &peek.0;
         let loc = &peek.1;
 
         if TERMINATORS.contains(token) {
-            if *token == SemiColon {
-                lexed.next();
-            }
             break;
+        }
+
+        match token {
+            Keyword(_) => if terms.len() > 0 && !VALUE_KEYWORDS.contains(token) {
+                break;
+            },
+            _ => {}
         }
 
         match token {
@@ -68,11 +81,15 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
                     "if" => parse_if(lexed),
                     "while" => parse_while(lexed),
                     "for" => parse_for(lexed),
+                    "let" => parse_let(lexed),
                     _ => Err((format!("Unknown keyword '{kwd}'"), *loc))
                 } {
                     Ok((exp, rest)) => {
                         terms.push((Term::ExpTerm(exp), *loc));
                         lexed = rest;
+                        if !VALUE_KEYWORDS.contains(token) {
+                            break
+                        }
                     },
                     Err(err) => return Err(err),
                 }
@@ -93,7 +110,7 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
                     Err(err) => return Err(err),
                 };
             },
-            Paren('{') => match parse_block(lexed) {
+            Paren('{') => match parse_block(lexed, true) {
                 Ok((exp, rest)) => {
                     terms.push((Term::ExpTerm(exp), *loc));
                     lexed = rest;
@@ -104,7 +121,11 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
                 terms.push((Term::OpTerm(token), *loc));
                 lexed.next();
             },
-            Name(_) => todo!(),
+            Id(id) =>{
+                //Check for fun call first TODO
+                terms.push((Term::ExpTerm(Exp::VarExp(id.clone(), *loc)), *loc));
+                lexed.next();
+            },
             _ => match parse_simple(lexed) {
                 Ok((exp, rest)) => {
                     terms.push((Term::ExpTerm(exp), *loc));
@@ -122,20 +143,20 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
         transformed.push((&terms[i].0, &terms[i].1))
     }
     
-    match construct_exp_tree(transformed.iter().peekable()) {
+    match construct_exp_tree(transformed.iter().peekable(), loc) {
         Ok(exp) => Ok((exp, lexed)),
         Err(err) => Err(err),
     }
 }
 
-fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexer::Location)>>) -> Result<Exp, (String, Location)> {
+fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexer::Location)>>, loc: Location) -> Result<Exp, (String, Location)> {
     let mut terms = terms.clone();
 
     //This is an atomic node
     if terms.len() == 1 {
         return match terms.next() {
             Some(term) => match term {
-                (Term::OpTerm(op), loc) => Err((format!("Expected an expression, found {op:?}"), **loc)),
+                (Term::OpTerm(op), loc) => Err((format!("Expected an expression, got {op:?}"), **loc)),
                 (Term::ExpTerm(exp), _) => Ok(exp.clone()),
             },
             None => unreachable!(),
@@ -158,12 +179,12 @@ fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexe
                             Term::OpTerm(_) => false,
                             Term::ExpTerm(_) => true,
                         } {
-                            let left_exp = match construct_exp_tree(left_side.iter().peekable()) {
+                            let left_exp = match construct_exp_tree(left_side.iter().peekable(), **loc) {
                                 Ok(exp) => exp,
                                 Err(err) => return Err(err),
                             };
                             terms.next();
-                            let right_exp = match construct_exp_tree(terms) {
+                            let right_exp = match construct_exp_tree(terms, **loc) {
                                 Ok(exp) => exp,
                                 Err(err) => return Err(err),
                             };
@@ -171,7 +192,7 @@ fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexe
                             return Ok(Exp::BinOpExp(Box::new(left_exp), parse_operator(op), Box::new(right_exp), **loc))
                         } else if level == 0 && left_side.len() == 0 {
                             terms.next();
-                            let right_exp = match construct_exp_tree(terms) {
+                            let right_exp = match construct_exp_tree(terms, **loc) {
                                 Ok(exp) => exp,
                                 Err(err) => return Err(err),
                             };
@@ -192,10 +213,11 @@ fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexe
         }
     }
 
-    unreachable!()
+    //Illegal syntax
+    Err((format!("Illegal syntax: Invalid expression: {terms:?}"), loc))
 }
 
-fn current_loc(lexed: &LexIter) -> Location {
+fn curr_loc(lexed: &LexIter) -> Location {
     let mut lexed = lexed.clone();
     match lexed.peek() {
         Some((_, loc)) => *loc,
@@ -217,10 +239,16 @@ fn parse_operator(op: &LexToken) -> ast::Operator {
             ">=" => ast::Operator::GreaterOrEquals,
             "!" => ast::Operator::Not,
             "==" => ast::Operator::Equals,
+            "=" => ast::Operator::Assign,
+            "+=" => ast::Operator::PlusAssign,
+            "-=" => ast::Operator::MinusAssign,
+            "&&" => ast::Operator::And,
+            "||" => ast::Operator::Or,
+            "!=" => ast::Operator::NotEquals,
             
             _ => panic!("Unknown operator")
         },
-        _ => panic!("Not an operator"),
+        _ => panic!("Not a legal operator"),
     }
 }
 
@@ -294,73 +322,153 @@ fn parse_if(lexed: LexIter) -> ParseRes {
     Ok((Exp::IfElseExp(Box::new(cond), Box::new(pos), Some(Box::new(neg)), *loc), lexed))
 }
 
+fn parse_id(lexed: LexIter) -> Result<&String, String> {
+    let mut lexed = lexed.clone();
+    let result = match lexed.next() {
+        Some((LexToken::Id(id), _)) => Ok(id),
+        _ => Err(format!("Not an id")),
+    };
+
+    lexed.next();
+
+    result
+}
+
+fn parse_let(lexed: LexIter) -> ParseRes {
+    let mut lexed = lexed.clone();
+    
+    //Get rid of keyword
+    let loc = match lexed.peek() {
+        Some((Keyword("let"), loc)) => loc,
+        _ => panic!("There should be a let here"),
+    };
+
+    lexed.next();
+
+    let id = match parse_id(lexed.clone()) {
+        Ok(id) => id,
+        Err(err) => return Err((err, curr_loc(&lexed))),
+    };
+
+    lexed.next();
+
+    match lexed.peek() {
+        Some((LexToken::Operator("="), _)) => lexed.next(),
+        _ => return Err((format!("Illegal 'let' statement"), *loc)),
+    };
+
+    let exp = match parse_exp(lexed) {
+        Ok((exp, rest)) => {
+            lexed = rest;
+            exp
+        },
+        Err(err) => return Err(err),
+    };
+
+    Ok((Exp::LetExp(id.clone(), Box::new(exp), *loc), lexed))
+}
+
 fn parse_while(lexed: LexIter) -> ParseRes {
-    todo!();
+    let mut lexed = lexed.clone();
+    
+    //Get rid of keyword
+    let loc = match lexed.peek() {
+        Some((Keyword("while"), loc)) => loc,
+        _ => panic!("There should be a while here"),
+    };
+
+    lexed.next();
+
+    match parenthesis(lexed, '(') {
+        Ok(rest) => lexed = rest,
+        Err(err) => return Err(err),
+    }
+
+    let cond = match parse_exp(lexed) {
+        Ok((exp, rest)) => {
+            lexed = rest;
+            exp
+        },
+        Err(err) => return Err(err),
+    };
+
+    match parenthesis(lexed, ')') {
+        Ok(rest) => lexed = rest,
+        Err(err) => return Err(err),
+    }
+
+    let exp = match parse_block(lexed, true) {
+        Ok((exp, rest)) => {
+            lexed = rest;
+            exp
+        },
+        Err(err) => return Err(err),
+    };
+
+    Ok((Exp::WhileExp(Box::new(cond), Box::new(exp), *loc), lexed))
 }
 
 fn parse_for(lexed: LexIter) -> ParseRes {
     todo!();
 }
 
-fn parse_block(lexed: LexIter) -> ParseRes {
+fn parse_block(lexed: LexIter, curly: bool) -> ParseRes {
     let mut lexed = lexed.clone();
-    let loc = current_loc(&lexed);
+    let loc = curr_loc(&lexed);
 
-    match parenthesis(lexed, '{') {
-        Ok(rest) => {
-            lexed = rest
-        },
-        Err(err) => return Err(err),
-    };
+    if curly {
+        match parenthesis(lexed, '{') {
+            Ok(rest) => {
+                lexed = rest
+            },
+            Err(err) => return Err(err),
+        };
+    }
 
     let mut exps: Vec<Exp> = Vec::new();
 
     while let Some(token) = lexed.peek() {
+        if curly {
+            match token {
+                (LexToken::Paren('}'), _) => {
+                    lexed.next();
+                    return Ok((Exp::BlockExp(exps, loc), lexed));
+                },
+                _ => {}
+            }
+        }
+
         match token {
-            (LexToken::Paren('}'), _) => {
-                lexed.next();
-                return Ok((Exp::BlockExp(exps, loc), lexed));
+            (SemiColon, _) => { lexed.next(); },
+            (EndOfInput, _) => { break },
+            _ => match parse_exp(lexed) {
+                Ok((exp, rest)) => {
+                    lexed = rest;
+                    exps.push(exp)
+                },
+                Err(err) => return Err(err),
             },
-            _ => {}
-        }
-
-        match parse_exp(lexed) {
-            Ok((exp, rest)) => {
-                lexed = rest;
-                exps.push(exp)
-            },
-            Err(err) => return Err(err),
-        }
+        };
     }
 
-    Err((format!("Unmatched '{{'"), loc))
-}
-
-fn parse_int(lexed: LexIter) -> ParseRes {
-    let mut lexed = lexed.clone();
-    match lexed.peek() {
-        Some((LexToken::Int(i), loc)) => {
-            lexed.next();
-            Ok((Exp::LiteralExp(Literal::Int(*i), *loc), lexed))
-        },
-        Some((token, loc)) => {
-            lexed.next();
-            Err((format!("Expected integer, got {token:?}"), *loc))
-        },
-        _ => Err((format!("Expected integer"), lexed.last().unwrap().1))
+    if curly {
+        Err((format!("Unmatched '{{'"), loc))
+    } else {
+        Ok((Exp::BlockExp(exps, loc), lexed))
     }
+    
 }
 
 fn parenthesis(lexed: LexIter, paren: char) -> Result<LexIter, (String, Location)> {
     let mut lexed = lexed.clone();
     match lexed.peek() {
-        Some((Paren(paren), _)) => {
+        Some((Paren(par), loc)) => {
+            if *par != paren {
+                return Err((format!("Expected '{paren}'"), *loc))
+            }
             lexed.next();
             Ok(lexed)
         },
-        Some((_, loc)) => {
-            Err((format!("Expected '{paren}'"), *loc))
-        },
-        _ => Err((format!("Expected '{paren}'"), lexed.last().unwrap().1))
+        _ => Err((format!("Expected '{paren}'"), curr_loc(&lexed)))
     }
 }

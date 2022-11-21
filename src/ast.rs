@@ -2,24 +2,29 @@ use std::fmt::{Display, format};
 
 use crate::lexer::Location;
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Exp {
     BinOpExp(Box<Exp>, Operator, Box<Exp>, Location),
     UnOpExp(Operator, Box<Exp>, Location),
     LiteralExp(Literal, Location),
     BlockExp(Vec<Exp>, Location),
+    VarExp(String, Location),
+    WhileExp(Box<Exp>, Box<Exp>, Location),
+
+    //Id, exp
+    LetExp(String, Box<Exp>, Location),
 
     ///Condition, if true, else
     IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>, Location)
 }
 
 #[derive(Copy, Clone)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Literal {
     Int(i64),
     Float(f64),
-    Bool(bool)
+    Bool(bool),
+    Unit
 }
 
 #[derive(Debug)]
@@ -35,7 +40,13 @@ pub enum Operator {
     Equals,
     LessOrEquals,
     GreaterOrEquals,
-    Not
+    Not,
+    Assign,
+    PlusAssign,
+    MinusAssign,
+    And,
+    Or,
+    NotEquals
 }
 
 impl Display for Literal {
@@ -44,7 +55,8 @@ impl Display for Literal {
             match self {
                 Literal::Int(i) => i.to_string(),
                 Literal::Float(f) => f.to_string(),
-                Literal::Bool(b) => b.to_string()
+                Literal::Bool(b) => b.to_string(),
+                Literal::Unit => "Unit".to_string()
             }
         )
     }
@@ -57,6 +69,7 @@ impl Display for Exp {
                 Exp::BinOpExp(left, op, right, _) => format!("({left} {op} {right})"),
                 Exp::UnOpExp(op, exp, _) => format!("({op}{exp})"),
                 Exp::LiteralExp(lit, _) => format!("{lit}"),
+                Exp::VarExp(id, _) => format!("{id}"),
                 Exp::BlockExp(exps, _) => {
                     let mut res = format!("{{");
                     for exp in exps {
@@ -69,6 +82,8 @@ impl Display for Exp {
                     Some(neg) => format!("if({cond}) {pos} else {neg}"),
                     None => format!("if({cond}) {pos}"),
                 },
+                Exp::LetExp(id, exp, _) =>  format!("let {id} = {exp};"),
+                Exp::WhileExp(cond, exp, _) => format!("while({cond})  {exp}"),
             }
         )
     }
@@ -88,14 +103,14 @@ impl Display for Operator {
                 Operator::Equals => "==",
                 Operator::LessOrEquals => "<=",
                 Operator::GreaterOrEquals => ">=",
-                Operator::Not => "!"
+                Operator::Not => "!",
+                Operator::Assign => "=",
+                Operator::PlusAssign => "+=",
+                Operator::MinusAssign => "-=",
+                Operator::And => "&&",
+                Operator::Or => "||",
+                Operator::NotEquals => "!=",
             }
         )
-    }
-}
-
-impl Exp {
-    pub fn evaluate(&self) -> Literal {
-        Literal::Bool(true)
     }
 }

@@ -10,12 +10,14 @@ pub enum LexToken {
     SemiColon,
     Operator(&'static str),
     Keyword(&'static str),
-    Name(String),
+    Id(String),
 
     //Literals
     Int(i64),
     Float(f64),
     Bool(bool),
+
+    EndOfInput
 }
 
 lazy_static! {
@@ -26,13 +28,13 @@ lazy_static! {
 #[derive(Debug)]
 #[derive(Copy, Clone)]
 pub struct Location {
-    line: u32,
-    loc: u32
+    pub line: u32,
+    pub col: u32
 }
 
 impl Display for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "line {}:{}", self.line, self.loc)
+        write!(f, "line: {}:{}", self.line, self.col)
     }
 }
 
@@ -81,11 +83,12 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
     let mut iter = input.chars().into_iter().enumerate().peekable();
     let mut line_loc = 0;
     let mut line = 1;
+    let mut loc = Location {line: 0, col: 0};
 
     while let Some(&c) = iter.peek() {
-        let loc = Location {
+        loc = Location {
             line, 
-            loc: (c.0 - line_loc + 1) as u32
+            col: (c.0 - line_loc + 1) as u32
         };
 
         let rest = &input[c.0..];
@@ -93,7 +96,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
         let char = c.1;
 
         if char.is_alphabetic() {
-            let name = get_name(&mut iter);
+            let name = get_id(&mut iter);
 
             //Special cases
             if name == "true" {
@@ -109,7 +112,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
                 program.push(LexToken::Keyword(kwd), loc);
             } else {
                 //It is not a keyword
-                program.push(LexToken::Name(name), loc)
+                program.push(LexToken::Id(name), loc)
             }
             
             continue
@@ -143,12 +146,19 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
         }
 
         iter.next();
+
+        loc = Location {
+            line, 
+            col: (c.0 - line_loc + 1) as u32
+        };
     }
+
+    program.push(LexToken::EndOfInput, loc);
 
     Ok(program)
 }
 
-fn get_name<T: Iterator<Item = (usize, char)>>(iter: &mut Peekable<T>) -> String {
+fn get_id<T: Iterator<Item = (usize, char)>>(iter: &mut Peekable<T>) -> String {
     let mut res = String::new();
     while iter.peek().is_some() && iter.peek().unwrap().1.is_alphanumeric() {
         res = format!("{res}{}", iter.next().unwrap().1);
