@@ -15,16 +15,16 @@ lazy_static!(
     pub static ref OPERATORS: Vec<&'static str> = Vec::from(["+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!", "==", "!=", "="]);
 
     ///All legal keywords
-    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for"]);
+    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else",   "while", "for", "let", "fun"]);
 
     pub static ref PRECEDENCE: Vec<Vec<LexToken>> = vec![
         //Unary
         vec![Operator("-"), Operator("!")],
 
         //Binary
-        vec![Operator("*"), Operator("/"), Operator("%")],
+        vec![Operator("*"), Operator("/"), Operator("%")],  
         vec![Operator("+"), Operator("-")],
-        vec![Operator("<"), Operator(">"), Operator("<="), Operator(">=")],
+        vec![Operator("<"), Operator(">"), Operator("<="), Operator(">="), Operator("==")],
         vec![Operator("="), Operator("+="), Operator("-=")],
     ];
 
@@ -101,35 +101,17 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
                 Err(err) => return Err(err)
             },
             LexToken::Operator(_) => {
-                if PRECEDENCE[0].contains(token) {
-                    //Is unary
-                    lexed.next();
-
-                    match parse_exp(lexed) {
-                        Ok((exp, rest)) => {
-                            terms.push((Term::ExpTerm(exp), *loc));
-                            lexed = rest;
-                        }
-                        Err(err) => return Err(err)
-                    }
-                }
-                else {
-                    //Binary
-                    terms.push((Term::OpTerm(token), *loc));
-                    lexed.next();
-                }
+                terms.push((Term::OpTerm(token), *loc));
+                lexed.next();
             },
             Name(_) => todo!(),
-            Int(_) => match parse_int(lexed) {
+            _ => match parse_simple(lexed) {
                 Ok((exp, rest)) => {
                     terms.push((Term::ExpTerm(exp), *loc));
                     lexed = rest;
                 },
                 Err(err) => return Err(err),
             },
-            Float(_) => todo!(),
-            Bool(_) => todo!(),
-            p => {println!("Dont know this: {p:?}"); panic!()},
         };
     }
 
@@ -148,6 +130,7 @@ fn parse_exp(lexed: LexIter) -> ParseRes {
 
 fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexer::Location)>>) -> Result<Exp, (String, Location)> {
     let mut terms = terms.clone();
+
     //This is an atomic node
     if terms.len() == 1 {
         return match terms.next() {
@@ -159,24 +142,8 @@ fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexe
         }
     }
 
-    //Unary
-    if let Some((Term::OpTerm(op), loc)) = terms.peek() {
-        //Abort if it is not a unary operator at all
-        if !PRECEDENCE[0].contains(op) {
-            return Err((format!("{op:?} is not a unary operator"), **loc))
-        }
-
-        terms.next();
-
-        return match construct_exp_tree(terms) {
-            Ok(exp) => Ok(Exp::UnOpExp(parse_operator(*op), Box::new(exp), **loc)),
-            Err(err) => Err(err),
-        }
-    }
-
-    //Res
-    //Skip unary operators as they are handled, and reverse to split at weakest operators first
-    for level in (1..PRECEDENCE.len()).rev() {
+    //Precedence
+    for level in (0..PRECEDENCE.len()).rev() {
         let mut terms = terms.clone();
         let mut left_side: Vec<(&Term, &Location)> = Vec::new();
         while let Some(entry) = terms.peek() {
@@ -185,19 +152,35 @@ fn construct_exp_tree<'a>(terms: Peekable<std::slice::Iter<'_, (&Term<'_>, &lexe
             
             match term {
                 Term::OpTerm(op) => {
-                    if PRECEDENCE[level].contains(op) {
-                        let left_exp = match construct_exp_tree(left_side.iter().peekable()) {
-                            Ok(exp) => exp,
-                            Err(err) => return Err(err),
-                        };
+                    if PRECEDENCE[level].contains(*op) {
+                        //If there is no left side or not a left side with immediate symbol, it is not a unary op
+                        if level > 0 && left_side.len() > 0 && match left_side.last().unwrap().0 {
+                            Term::OpTerm(_) => false,
+                            Term::ExpTerm(_) => true,
+                        } {
+                            let left_exp = match construct_exp_tree(left_side.iter().peekable()) {
+                                Ok(exp) => exp,
+                                Err(err) => return Err(err),
+                            };
+                            terms.next();
+                            let right_exp = match construct_exp_tree(terms) {
+                                Ok(exp) => exp,
+                                Err(err) => return Err(err),
+                            };
 
-                        terms.next();
-                        let right_exp = match construct_exp_tree(terms) {
-                            Ok(exp) => {exp},
-                            Err(err) => return Err(err),
-                        };
-                        
-                        return Ok(Exp::BinOpExp(Box::new(left_exp), parse_operator(op), Box::new(right_exp), **loc))
+                            return Ok(Exp::BinOpExp(Box::new(left_exp), parse_operator(op), Box::new(right_exp), **loc))
+                        } else if level == 0 && left_side.len() == 0 {
+                            terms.next();
+                            let right_exp = match construct_exp_tree(terms) {
+                                Ok(exp) => exp,
+                                Err(err) => return Err(err),
+                            };
+                            
+                            return Ok(Exp::UnOpExp(parse_operator(op), Box::new(right_exp), **loc))
+                        }
+                        else {
+                            left_side.push((term, *loc))
+                        }
                     } else {
                         left_side.push((term, *loc))
                     }
@@ -232,6 +215,8 @@ fn parse_operator(op: &LexToken) -> ast::Operator {
             ">" => ast::Operator::GreaterThan,
             "<=" => ast::Operator::LessOrEquals,
             ">=" => ast::Operator::GreaterOrEquals,
+            "!" => ast::Operator::Not,
+            "==" => ast::Operator::Equals,
             
             _ => panic!("Unknown operator")
         },
@@ -240,8 +225,20 @@ fn parse_operator(op: &LexToken) -> ast::Operator {
 }
 
 fn parse_simple(lexed: LexIter) -> ParseRes {
-    parse_int(lexed)
-    //todo!();
+    let mut lexed = lexed.clone();
+    let result = if let Some(token) = lexed.peek() {
+        let loc = token.1;
+        match token.0 {
+            LexToken::Int(i) => Exp::LiteralExp(Literal::Int(i), loc),
+            LexToken::Float(f) => Exp::LiteralExp(Literal::Float(f), loc),
+            LexToken::Bool(b) => Exp::LiteralExp(Literal::Bool(b), loc),
+            _ => return Err((format!("Expected simple token, but got {token:?}"), loc))
+        }
+    } else { unreachable!() };
+
+    lexed.next();
+
+    Ok((result, lexed))
 }
 
 fn parse_if(lexed: LexIter) -> ParseRes {

@@ -55,7 +55,7 @@ impl Display for Exp {
         write!(f, "{}",
             match self {
                 Exp::BinOpExp(left, op, right, _) => format!("({left} {op} {right})"),
-                Exp::UnOpExp(op, exp, _) => format!("{op} {exp}"),
+                Exp::UnOpExp(op, exp, _) => format!("({op}{exp})"),
                 Exp::LiteralExp(lit, _) => format!("{lit}"),
                 Exp::BlockExp(exps, _) => {
                     let mut res = format!("{{");
