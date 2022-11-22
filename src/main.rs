@@ -35,17 +35,18 @@ async fn main() {
 
                     let total_mem = (mem_after - mem_before) / 1_028;
 
-                    let elapsed = before.elapsed().as_micros();
+                    let elapsed = before.elapsed().as_millis();
 
-                    println!("Parsed in {elapsed}μs");
+                    println!("Parsed in {elapsed}ms");
                     println!("Program size: {}kB", total_mem);
-                    println!("------------------------\n");
+                    println!("Running");
+                    //println!("------------------------\n");
 
                     let before = Instant::now();
                     let res = program.evaluate(&mut Environment::new());
                     let elapsed = before.elapsed().as_millis();
 
-                    println!("\n------------------------");
+                    //println!("\n------------------------");
                     println!("Returned: {res}");
                     println!("Time: {elapsed}ms");
                 },

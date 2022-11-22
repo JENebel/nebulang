@@ -44,26 +44,36 @@ lazy_static!(
         Keyword("else"),
         EndOfInput
     ];
-
-    pub static ref STATEMENTS: Vec<fn(&mut LexIter) -> KeepRes> = vec![
-        wwhile,
-        block,
-        llet,
-        //parse_fun_decl
-        //parse_for,
-        iif,
-        expression
-    ];
-
-    pub static ref TERMS: Vec<fn(&mut LexIter) -> KeepRes> = vec![
-        block,
-        iif,
-        //fun_call,
-        literal,
-        variable,
-        parenthesized_exp
-    ];
 );
+
+pub fn statement(lexed: &mut LexIter) -> KeepRes {
+    if let Some((token, _)) = lexed.peek() {
+        return match token {
+            Paren('{') =>        block(lexed),
+            Keyword("while") =>  wwhile(lexed),
+            Keyword("let") =>    llet(lexed),
+            _ => expression(lexed)
+        }
+    }
+
+    unreachable!()
+}
+
+pub fn term(lexed: &mut LexIter) -> KeepRes {
+    if let Some((token, _)) = lexed.peek() {
+        return match token {
+            Paren('{') =>                       block(lexed),
+            Keyword("if") =>                    iif(lexed),
+            Paren('(') =>                     parenthesized_exp(lexed),
+            Int(_) | Float(_) | Bool(_) =>      literal(lexed),
+            Id(_) =>                            variable(lexed),
+
+            _ => Err((format!("Expected a term"), curr_loc(lexed)?))
+        };
+    }
+
+    unreachable!();
+}
 
 pub fn parse(lexed: &mut LexIter) -> KeepRes {
     parse_statements(lexed)
@@ -82,19 +92,6 @@ fn parse_statements(lexed: &mut LexIter) -> KeepRes {
     Ok(Exp::BlockExp(exps, loc))
 }
 
-fn statement(lexed: &mut LexIter) -> KeepRes {
-    for matcher in STATEMENTS.iter() {
-        //Checks if is ok on a copy, and only mutates the actual data if it is OK
-        let mut copy = lexed.clone();
-        match matcher(&mut copy) {
-            Ok(_) => return matcher(lexed),
-            Err(_) => {},
-        }
-    }
-
-    Err((format!("Expected statement"), curr_loc(lexed)?))
-}
-
 #[derive(Clone, Debug)]
 enum Term {
     ExpTerm(Exp),
@@ -106,35 +103,19 @@ fn expression(lexed: &mut LexIter) -> KeepRes {
 
     //Collect terms
     while !terminator(lexed) {
-        match lexed.peek() {
-            Some((Operator(_), loc)) => {
-                terms.push(Term::OpTerm(any_operator(lexed)?, *loc))
-            },
-            Some(_) => {
-                let mut matched = false;
-                for matcher in TERMS.iter() {
-                    //Checks if is legal on a copy, and only mutates the actual data if it is OK
-                    let mut copy = lexed.clone();
-                    match matcher(&mut copy) {
-                        Ok(_) => {
-                            //Return error if parsed to exp terms in a row
-                            if let Some(Term::ExpTerm(_)) = terms.last() {
-                                return Err((format!("Expected operator or ';'"), curr_loc(lexed)?))
-                            } else {
-                                terms.push(Term::ExpTerm(matcher(lexed)?));
-                                matched = true;
-                                break;
-                            }
-                        },
-                        Err(_) => {} //Ignore result and try next term type
-                    }
-                }
-                if !matched {
-                    return Err((format!("Expected an operator or term"), curr_loc(lexed)?))
-                }
-            },
-            _ => unreachable!()
+        if let Some((Operator(_), loc)) = lexed.peek() {
+            terms.push(Term::OpTerm(any_operator(lexed)?, *loc))
+        } if let Some(Term::ExpTerm(a)) = terms.last() {
+            if terms.len() > 1 {
+                return Err((format!("Expected operator or ';' {a}"), curr_loc(lexed)?))
+            }
+        } else {
+            terms.push(Term::ExpTerm(term(lexed)?))
         }
+    }
+
+    if terms.len() == 0 {
+        return Err((format!("Expected something"), curr_loc(lexed)?));
     }
 
     //Establish precedence
