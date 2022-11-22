@@ -1,4 +1,4 @@
-use std::fmt::{Display, format};
+use std::fmt::Display;
 
 use crate::lexer::Location;
 
@@ -27,8 +27,7 @@ pub enum Literal {
     Unit
 }
 
-#[derive(Debug)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Operator {
     Plus,
     Minus,

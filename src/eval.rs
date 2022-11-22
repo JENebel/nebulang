@@ -173,7 +173,7 @@ impl Exp {
                 _ => unreachable!("Not a unary operator")
             },
             LiteralExp(lit, _) => *lit,
-            BlockExp(exps, loc) => {
+            BlockExp(exps, _) => {
                 envir.enter_scope();
 
                 let mut iter = exps.iter().peekable();

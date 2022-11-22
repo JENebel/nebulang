@@ -12,9 +12,10 @@ while(i < 10000) {
         if(i%d==0) p=false;
         d+=1
     }
-    if (p) primes += 1;
+    
+    if(p) primes += 1;
 
     i+=1
-}
+};
 
 primes

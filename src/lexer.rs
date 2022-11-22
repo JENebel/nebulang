@@ -56,14 +56,6 @@ impl LexedProgram {
     pub fn iter(&self) -> Peekable<std::slice::Iter<(LexToken, Location)>> {
         self.program.iter().peekable()
     }
-
-    pub fn get_token(&self, index: usize) -> &LexToken {
-        &self.program[index].0
-    }
-
-    pub fn get_location(&self, index: usize) -> &Location {
-        &self.program[index].1
-    }
 }
 
 impl Display for LexedProgram {
@@ -81,14 +73,14 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
     let mut program = LexedProgram::new();
 
     let mut iter = input.chars().into_iter().enumerate().peekable();
-    let mut line_loc = 0;
+    let mut col = 1;
     let mut line = 1;
     let mut loc = Location {line: 0, col: 0};
 
     while let Some(&c) = iter.peek() {
         loc = Location {
             line, 
-            col: (c.0 - line_loc + 1) as u32
+            col: (c.0 - col) as u32
         };
 
         let rest = &input[c.0..];
@@ -132,7 +124,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
 
         if char == '\n' {
             line += 1;
-                line_loc = c.0;
+            col = c.0;
         } else if !char.is_whitespace() {
 
             //Match chars
@@ -149,7 +141,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
 
         loc = Location {
             line, 
-            col: (c.0 - line_loc + 1) as u32
+            col: (c.0 - col + 1) as u32
         };
     }
 

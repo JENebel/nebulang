@@ -1,9 +1,2 @@
-
-
-let a = 0;
-while(a < 110) {
-    let b = 12;
-    a+=1
-}
-
+let a = 4 + 6;
 a
