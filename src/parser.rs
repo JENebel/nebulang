@@ -62,11 +62,11 @@ pub fn statement(lexed: &mut LexIter) -> KeepRes {
 pub fn term(lexed: &mut LexIter) -> KeepRes {
     if let Some((token, _)) = lexed.peek() {
         return match token {
-            Paren('{') =>                       block(lexed),
-            Keyword("if") =>                    iif(lexed),
-            Paren('(') =>                     parenthesized_exp(lexed),
-            Int(_) | Float(_) | Bool(_) =>      literal(lexed),
-            Id(_) =>                            variable(lexed),
+            Paren('{') =>                   block(lexed),
+            Keyword("if") =>                iif(lexed),
+            Paren('(') =>                   parenthesized_exp(lexed),
+            Int(_) | Float(_) | Bool(_) =>  literal(lexed),
+            Id(_) =>                        variable(lexed),
 
             _ => Err((format!("Expected a term"), curr_loc(lexed)?))
         };
@@ -105,11 +105,13 @@ fn expression(lexed: &mut LexIter) -> KeepRes {
     while !terminator(lexed) {
         if let Some((Operator(_), loc)) = lexed.peek() {
             terms.push(Term::OpTerm(any_operator(lexed)?, *loc))
-        } if let Some(Term::ExpTerm(a)) = terms.last() {
-            if terms.len() > 1 {
-                return Err((format!("Expected operator or ';' {a}"), curr_loc(lexed)?))
-            }
         } else {
+            if let Some(Term::ExpTerm(_)) = terms.last() {
+                if terms.len() > 0 {
+                    return Err((format!("Expected operator or ';'"), curr_loc(lexed)?))
+                }
+            }
+    
             terms.push(Term::ExpTerm(term(lexed)?))
         }
     }
@@ -151,12 +153,15 @@ fn precedence(terms: &[Term]) -> KeepRes {
     //Unary operators
     if let Some(Term::OpTerm(op, loc)) = terms.first() {
         if !UNARY_OPERATORS.contains(op) {
-            return Err((format!("unexpected operator '{op}'"), *loc))
+            return Err((format!("Not a unary operator '{op}'"), *loc))
         }
-
         return Ok(Exp::UnOpExp(*op, Box::new(precedence(&terms[1..])?), *loc));
+    } else if let Some(Term::ExpTerm(_)) = terms.first() {
+        if let Term::OpTerm(op, loc) = terms[1] {
+            return Err((format!("Not a binary operator '{op}'"), loc))
+        }
     }
-    
+
     unreachable!()
 }
 

@@ -29,7 +29,7 @@ lazy_static! {
 #[derive(Copy, Clone)]
 pub struct Location {
     pub line: u32,
-    pub col: u32
+    pub col: usize
 }
 
 impl Display for Location {
@@ -73,14 +73,14 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
     let mut program = LexedProgram::new();
 
     let mut iter = input.chars().into_iter().enumerate().peekable();
-    let mut col = 1;
+    let mut col: usize = 1;
     let mut line = 1;
-    let mut loc = Location {line: 0, col: 0};
+    let mut loc = Location {line, col};
 
     while let Some(&c) = iter.peek() {
         loc = Location {
             line, 
-            col: (c.0 - col) as u32
+            col: (c.0 - col + if line == 1 {1} else {0})
         };
 
         let rest = &input[c.0..];
@@ -138,11 +138,6 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
         }
 
         iter.next();
-
-        loc = Location {
-            line, 
-            col: (c.0 - col + 1) as u32
-        };
     }
 
     program.push(LexToken::EndOfInput, loc);

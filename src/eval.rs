@@ -218,7 +218,7 @@ impl Exp {
                     match res {
                         Bool(true) => exp.evaluate(envir),
                         Bool(false) => break,
-                        _ => panic!()
+                        _ => panic!("Condition must be a bool")
                     };
                 }
 
