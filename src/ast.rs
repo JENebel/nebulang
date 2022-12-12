@@ -1,13 +1,12 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
 use crate::lexer::Location;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Exp {
     BinOpExp(Box<Exp>, Operator, Box<Exp>, Location),
     UnOpExp(Operator, Box<Exp>, Location),
     LiteralExp(Literal, Location),
-    BlockExp(Vec<Exp>, Location),
     VarExp(String, Location),
     WhileExp(Box<Exp>, Box<Exp>, Location),
 
@@ -15,16 +14,41 @@ pub enum Exp {
     LetExp(String, Box<Exp>, Location),
 
     ///Condition, if true, else
-    IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>, Location)
+    IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>, Location),
+
+    BlockExp(Vec<Exp>, Vec<(String, Rc<Function>)>, Location),
+    FunCallExp(String, Vec<Exp>, Location)
 }
 
-#[derive(Copy, Clone)]
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Literal {
+    //Function(&'a Function),
     Int(i64),
     Float(f64),
     Bool(bool),
-    Unit
+    Unit,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Function {
+    pub p_types: Vec<Type>,
+    pub params: Vec<String>,
+    pub exp: Box<Exp>,
+    pub return_type: Type
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum Type {
+    Int,
+    Float,
+    Bool,
+//Unit,
+
+    //Params, return type
+//FunType(Vec<Type>, Box<Type>),
+
+    //Before type check
+    Any
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -55,7 +79,7 @@ impl Display for Literal {
                 Literal::Int(i) => i.to_string(),
                 Literal::Float(f) => f.to_string(),
                 Literal::Bool(b) => b.to_string(),
-                Literal::Unit => "Unit".to_string()
+                Literal::Unit => "Unit".to_string(),
             }
         )
     }
@@ -69,7 +93,8 @@ impl Display for Exp {
                 Exp::UnOpExp(op, exp, _) => format!("({op}{exp})"),
                 Exp::LiteralExp(lit, _) => format!("{lit}"),
                 Exp::VarExp(id, _) => format!("{id}"),
-                Exp::BlockExp(exps, _) => {
+                Exp::BlockExp(exps, _, _) => {
+                    //Should also output fun defs
                     let mut res = format!("{{");
                     for exp in exps {
                         res = format!("{res}\n {exp}")
@@ -83,6 +108,7 @@ impl Display for Exp {
                 },
                 Exp::LetExp(id, exp, _) =>  format!("let {id} = {exp};"),
                 Exp::WhileExp(cond, exp, _) => format!("while({cond})  {exp}"),
+                Exp::FunCallExp(_, _, _) => todo!()//format!("while({cond})  {exp}"),
             }
         )
     }

@@ -1,2 +1,6 @@
-let a = 4;
-a;
+fun a(a: int, b: int) = {
+    fun deez() = 18 * 18;
+    deez()
+}
+
+a(18, 1)

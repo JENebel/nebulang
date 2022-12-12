@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::*;
 use Literal::*;
 use Operator::*;
@@ -5,41 +7,66 @@ use Exp::*;
 
 pub struct Environment {
     var_stack: Vec<(String, Literal)>,
-    scope_sizes: Vec<u16>,
-    current_scope_vars: u16
+    var_scope_sizes: Vec<u16>,
+    var_current_scope: u16,
+
+    fun_stack: Vec<(String, Rc<Function>)>,
+    fun_scope_sizes: Vec<u16>,
+    fun_current_scope: u16
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self { 
             var_stack: Vec::new(),
-            scope_sizes: Vec::new(),
-            current_scope_vars: 0
+            var_scope_sizes: Vec::new(),
+            var_current_scope: 0,
+
+            fun_stack: Vec::new(),
+            fun_scope_sizes: Vec::new(),
+            fun_current_scope: 0
         }
     }
 
-    pub fn enter_scope(&mut self) {
-        self.scope_sizes.push(self.current_scope_vars);
-        self.current_scope_vars = 0
+    pub fn enter_scope (&mut self, funs: &Vec<(String, Rc<Function>)>) {
+        self.var_scope_sizes.push(self.var_current_scope);
+
+        self.var_current_scope = 0;
+
+        self.fun_scope_sizes.push(self.fun_current_scope);
+        for i in 0..funs.len() {
+            self.fun_current_scope += 1;
+            self.fun_stack.push((funs[i].0.clone(), funs[i].1.clone()))
+        }
     }
 
     pub fn leave_scope(&mut self) {
         //Pop vars
-        for _ in 0..self.current_scope_vars {
+        for _ in 0..self.var_current_scope {
             self.var_stack.pop();
+        }
+
+        //Pop funs
+        for _ in 0..self.fun_current_scope {
+            self.fun_stack.pop();
         }
         
         //Pop scope size
-        self.current_scope_vars = self.scope_sizes.pop().expect("Stack was empty. Should never happen");
+        self.var_current_scope = self.var_scope_sizes.pop().expect("Var stack was empty. Should never happen");
+        self.fun_current_scope = self.fun_scope_sizes.pop().expect("Fun stack was empty. Should never happen");
     }
 
-    pub fn push_variable(&mut self, id: &String, value: Literal){
+    pub fn push_variable(&mut self, id: &String, value: Literal) {
+        self.var_current_scope += 1;
         self.var_stack.push((id.clone(), value));
-        self.current_scope_vars += 1;
     }
 
-    pub fn lookup(&self, id: &String) -> Literal {
-        self.var_stack.iter().rev().find(|var| &var.0 == id).expect("Var id not found. Should never happen").1
+    pub fn lookup_var(&self, id: &String) -> &Literal {
+        &self.var_stack.iter().rev().find(|var| &var.0 == id).expect("Var id not found. Should never happen").1
+    }
+
+    pub fn lookup_fun(&self, id: &String) -> &Function {
+        &self.fun_stack.iter().rev().find(|var| var.0 == *id).expect("Fun id not found. Should never happen").1
     }
 
     pub fn mutate(&mut self, id: &String, new_value: Literal) {
@@ -51,8 +78,8 @@ impl Environment {
     }
 }
 
-impl Exp {
-    pub fn evaluate(&self, envir: &mut Environment) -> Literal {
+impl<'a> Exp {
+    pub fn evaluate(&'a self, envir: &'a mut Environment) -> Literal {
         match self {
             BinOpExp(left, op, right, _) => match op {
                 Plus => match (left.evaluate(envir), right.evaluate(envir)) {
@@ -137,7 +164,7 @@ impl Exp {
                 },
                 PlusAssign => match (left.as_ref(), right.evaluate(envir)) {
                     (VarExp(id, _), value) => {
-                        let new_value = match (envir.lookup(id), value) {
+                        let new_value = match (envir.lookup_var(id), value) {
                             (Int(i), Int(y)) => Int(i+y),
                             (Float(f), Float(g)) => Float(f+g),
                             _ => unreachable!("Invalid types")
@@ -149,7 +176,7 @@ impl Exp {
                 },
                 MinusAssign => match (left.as_ref(), right.evaluate(envir)) {
                     (VarExp(id, _), value) => {
-                        let new_value = match (envir.lookup(id), value) {
+                        let new_value = match (envir.lookup_var(id), value) {
                             (Int(i), Int(y)) => Int(i-y),
                             (Float(f), Float(g)) => Float(f-g),
                             _ => unreachable!("Invalid types")
@@ -173,8 +200,8 @@ impl Exp {
                 _ => unreachable!("Not a unary operator")
             },
             LiteralExp(lit, _) => *lit,
-            BlockExp(exps, _) => {
-                envir.enter_scope();
+            BlockExp(exps, funs, _) => {
+                envir.enter_scope(&funs);
 
                 let mut iter = exps.iter().peekable();
                 if iter.peek().is_none() { return Unit }
@@ -192,7 +219,7 @@ impl Exp {
 
                 returned
             },
-            VarExp(id, _) => envir.lookup(&id),
+            VarExp(id, _) => *envir.lookup_var(&id),
             LetExp(id, exp, _) => {
                 let value = exp.evaluate(envir);
                 envir.push_variable(&id, value); 
@@ -223,6 +250,22 @@ impl Exp {
                 }
 
                 Unit
+            }
+            FunCallExp(id, args, _) => {
+                envir.enter_scope(&Vec::new());
+
+                let func = envir.lookup_fun(id).clone();
+                
+                for i in 0..args.len() {
+                    let lit = args[i].evaluate(envir);
+                    envir.push_variable(&func.params[i], lit);
+                }
+
+                let res = func.exp.evaluate(envir);
+
+                envir.leave_scope();
+
+                res
             },
         }
     }

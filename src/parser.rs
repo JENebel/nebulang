@@ -1,5 +1,4 @@
-use core::panic;
-use std::{iter::Peekable, slice::Iter};
+use std::{iter::Peekable, slice::Iter, rc::Rc};
 
 use lazy_static::lazy_static;
 
@@ -17,7 +16,10 @@ lazy_static!(
     pub static ref OPERATORS: Vec<&'static str> = Vec::from(["+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
 
     ///All legal keywords
-    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun"]);
+    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun", "cap"]);
+
+    ///All legal types
+    pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool"]);
 
     pub static ref UNARY_OPERATORS: Vec<ast::Operator> = vec![
         Minus,
@@ -42,6 +44,7 @@ lazy_static!(
         Paren('}'),
         Paren(']'),
         Keyword("else"),
+        Comma,
         EndOfInput
     ];
 );
@@ -49,6 +52,7 @@ lazy_static!(
 pub fn statement(lexed: &mut LexIter) -> KeepRes {
     if let Some((token, _)) = lexed.peek() {
         return match token {
+            //Fun decls are handled in: parse_statements()
             Paren('{') =>        block(lexed),
             Keyword("while") =>  wwhile(lexed),
             Keyword("let") =>    llet(lexed),
@@ -66,7 +70,7 @@ pub fn term(lexed: &mut LexIter) -> KeepRes {
             Keyword("if") =>                iif(lexed),
             Paren('(') =>                   parenthesized_exp(lexed),
             Int(_) | Float(_) | Bool(_) =>  literal(lexed),
-            Id(_) =>                        variable(lexed),
+            Id(_) =>                        var_or_fun_call(lexed),
 
             _ => Err((format!("Expected a term"), curr_loc(lexed)?))
         };
@@ -83,13 +87,20 @@ fn parse_statements(lexed: &mut LexIter) -> KeepRes {
     let loc = curr_loc(lexed)?;
 
     let mut exps: Vec<Exp> = Vec::new();
+    let mut funs: Vec<(String, Rc<Function>)> = Vec::new();
 
     while !terminator(lexed) {
-        exps.push(statement(lexed)?);
+        match lexed.peek() {
+            Some((Keyword("fun"), _)) => {
+                funs.push(fun_decl(lexed)?)
+            },
+            _ => exps.push(statement(lexed)?)
+        }
+        
         match semi_colon(lexed) { _ => {} } //Just discard the semicolon if it is present
     }
 
-    Ok(Exp::BlockExp(exps, loc))
+    Ok(Exp::BlockExp(exps, funs, loc))
 }
 
 #[derive(Clone, Debug)]
@@ -286,11 +297,84 @@ fn id(lexed: &mut LexIter) -> Result<String, (String, Location)> {
     }
 }
 
-fn variable(lexed: &mut LexIter) -> KeepRes {
+fn var_or_fun_call(lexed: &mut LexIter) -> KeepRes {
     let loc = curr_loc(lexed)?;
-
     let id = id(lexed)?;
-    Ok(Exp::VarExp(id, loc))
+
+    match lexed.peek() {
+        Some((Paren('('), _)) => {
+            parenthesis(lexed, '(')?;
+
+            let mut params = Vec::new();
+            loop {
+                if terminator(lexed) {
+                    break
+                }
+                let param = expression(lexed)?;
+                println!("{param:?}");
+                params.push(param);
+                let _ = comma(lexed);
+            }
+            parenthesis(lexed, ')')?;
+
+            Ok(Exp::FunCallExp(id, params, loc))
+        },
+        _ => Ok(Exp::VarExp(id, loc)),
+    }
+}
+
+fn fun_decl(lexed: &mut LexIter) -> Result<(String, Rc<Function>), (String, Location)> {
+    keyword(lexed, "fun")?;
+    let name = id(lexed)?;
+    parenthesis(lexed, '(')?;
+    let mut params = Vec::new();
+    let mut p_types = Vec::new();
+    while let Ok(param) = id(lexed) {
+        params.push(param);
+        colon(lexed)?;
+        p_types.push(any_type(lexed)?);
+
+        if let Err(_) = comma(lexed) {
+            break
+        }
+    }
+    parenthesis(lexed, ')')?;
+
+    let return_type = if let Ok(_) = colon(lexed) {
+        any_type(lexed)?
+    } else {
+        ast::Type::Any
+    };
+
+    operator(lexed, Assign)?;
+
+    let exp = statement(lexed)?;
+
+    let func = Function {
+        p_types,
+        params,
+        exp: Box::new(exp),
+        return_type,
+    };
+
+    Ok((name, Rc::new(func)))
+}
+
+fn any_type(lexed: &mut LexIter) -> Result<ast::Type, (String, Location)> {
+    match lexed.peek() {
+        Some((Type(typ), loc)) => {
+            let typ = match *typ {
+                "int" => ast::Type::Int,
+                "float" => ast::Type::Float,
+                "bool" => ast::Type::Bool,
+
+                _ => return Err((format!("Unknown type"), *loc))
+            };
+            lexed.next();
+            return Ok(typ);
+        } 
+        _ => Err((format!("Expected a type"), curr_loc(lexed)?))
+    }
 }
 
 fn literal(lexed: &mut LexIter) -> KeepRes {
@@ -314,6 +398,26 @@ fn semi_colon(lexed: &mut LexIter) -> DiscardRes {
             Ok(())
         },
         _ => Err((format!("Expected ';'"), curr_loc(lexed)?)),
+    }
+}
+
+fn colon(lexed: &mut LexIter) -> DiscardRes {
+    match lexed.peek() {
+        Some((Colon, _)) => {
+            lexed.next();
+            Ok(())
+        },
+        _ => Err((format!("Expected ':'"), curr_loc(lexed)?)),
+    }
+}
+
+fn comma(lexed: &mut LexIter) -> DiscardRes {
+    match lexed.peek() {
+        Some((Comma, _)) => {
+            lexed.next();
+            Ok(())
+        },
+        _ => Err((format!("Expected ','"), curr_loc(lexed)?)),
     }
 }
 

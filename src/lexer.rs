@@ -8,8 +8,12 @@ use crate::parser::*;
 pub enum LexToken {
     Paren(char),
     SemiColon,
+    Colon,
+    Comma,
+
     Operator(&'static str),
     Keyword(&'static str),
+    Type(&'static str),
     Id(String),
 
     //Literals
@@ -26,7 +30,7 @@ lazy_static! {
 }
 
 #[derive(Debug)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Location {
     pub line: u32,
     pub col: usize
@@ -102,6 +106,9 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
             else if let Some(kwd) = KEYWORDS.iter().find(|kwd| kwd.to_string() == name) {
                 //It is a keyword
                 program.push(LexToken::Keyword(kwd), loc);
+            } else if let Some(typ) = TYPES.iter().find(|typ| typ.to_string() == name) {
+                //It is a type annotation
+                program.push(LexToken::Type(typ), loc);
             } else {
                 //It is not a keyword
                 program.push(LexToken::Id(name), loc)
@@ -131,6 +138,8 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
             match char {
                 '('|')'|'{'|'}'|'['|']' => program.push(LexToken::Paren(char), loc),
                 ';' => program.push(LexToken::SemiColon, loc),
+                ':' => program.push(LexToken::Colon, loc),
+                ',' => program.push(LexToken::Comma, loc),
 
                 ' ' | '\t' => {}
                 _ => return Err(format!("Lexer Error: What is this '{char}' doing at {loc}?"))
