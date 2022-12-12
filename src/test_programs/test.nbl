@@ -1,6 +1,4 @@
-fun a(a: int, b: int) = {
-    fun deez() = 18 * 18;
-    deez()
-}
-
-a(18, 1)
+let a = 12;
+foo();
+fun foo() = a = a * 2;
+a

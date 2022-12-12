@@ -42,7 +42,7 @@ pub enum Type {
     Int,
     Float,
     Bool,
-//Unit,
+    Unit,
 
     //Params, return type
 //FunType(Vec<Type>, Box<Type>),

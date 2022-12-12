@@ -16,10 +16,10 @@ lazy_static!(
     pub static ref OPERATORS: Vec<&'static str> = Vec::from(["+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
 
     ///All legal keywords
-    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun", "cap"]);
+    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun"]);
 
     ///All legal types
-    pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool"]);
+    pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool", "unit"]);
 
     pub static ref UNARY_OPERATORS: Vec<ast::Operator> = vec![
         Minus,
@@ -311,7 +311,6 @@ fn var_or_fun_call(lexed: &mut LexIter) -> KeepRes {
                     break
                 }
                 let param = expression(lexed)?;
-                println!("{param:?}");
                 params.push(param);
                 let _ = comma(lexed);
             }
@@ -367,6 +366,7 @@ fn any_type(lexed: &mut LexIter) -> Result<ast::Type, (String, Location)> {
                 "int" => ast::Type::Int,
                 "float" => ast::Type::Float,
                 "bool" => ast::Type::Bool,
+                "unit" => ast::Type::Unit,
 
                 _ => return Err((format!("Unknown type"), *loc))
             };

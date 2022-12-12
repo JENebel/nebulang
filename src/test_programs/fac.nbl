@@ -1,0 +1,11 @@
+fun fact(n: int): int = {
+    fun f(n: int, acc: int) = {
+        if (n == 0) acc else {
+            f(n - 1, n * acc)
+        }
+    }
+
+    f(n, 1);
+}
+
+fact(5)

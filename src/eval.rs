@@ -255,10 +255,15 @@ impl<'a> Exp {
                 envir.enter_scope(&Vec::new());
 
                 let func = envir.lookup_fun(id).clone();
+
+                let mut lits = Vec::new();
                 
                 for i in 0..args.len() {
-                    let lit = args[i].evaluate(envir);
-                    envir.push_variable(&func.params[i], lit);
+                    lits.push(args[i].evaluate(envir));
+                }
+
+                for i in 0..args.len() {
+                    envir.push_variable(&func.params[i], lits[i]);
                 }
 
                 let res = func.exp.evaluate(envir);
