@@ -1,4 +1,2 @@
-let a = 12;
-foo();
-fun foo() = a = a * 2;
-a
+foo(24);
+fun foo(g: int): int = if(g == 0) foo(g - 1) else 69;

@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use super::*;
 use Literal::*;
 use Operator::*;
@@ -10,7 +8,7 @@ pub struct Environment {
     var_scope_sizes: Vec<u16>,
     var_current_scope: u16,
 
-    fun_stack: Vec<(String, Rc<Function>)>,
+    fun_stack: Vec<(String, Box<Function>)>,
     fun_scope_sizes: Vec<u16>,
     fun_current_scope: u16
 }
@@ -28,7 +26,7 @@ impl Environment {
         }
     }
 
-    pub fn enter_scope (&mut self, funs: &Vec<(String, Rc<Function>)>) {
+    pub fn enter_scope (&mut self, funs: &Vec<(String, Box<Function>)>) {
         self.var_scope_sizes.push(self.var_current_scope);
 
         self.var_current_scope = 0;
@@ -203,18 +201,11 @@ impl<'a> Exp {
             BlockExp(exps, funs, _) => {
                 envir.enter_scope(&funs);
 
-                let mut iter = exps.iter().peekable();
-                if iter.peek().is_none() { return Unit }
-
                 let mut returned = Unit;
-                while let Some(exp) = iter.next() {
-                    returned = exp.evaluate(envir);
-                    if iter.peek().is_none() {
-                        envir.leave_scope();
-                        return returned;
-                    }
-                }
 
+                for exp in exps {
+                    returned = exp.evaluate(envir);
+                }
                 envir.leave_scope();
 
                 returned
@@ -270,7 +261,11 @@ impl<'a> Exp {
 
                 envir.leave_scope();
 
-                res
+                if func.ret_type == ast::Type::Unit {
+                    Unit
+                } else {
+                    res
+                }
             },
         }
     }

@@ -1,4 +1,4 @@
-use std::{iter::Peekable, slice::Iter, rc::Rc};
+use std::{iter::Peekable, slice::Iter};
 
 use lazy_static::lazy_static;
 
@@ -87,7 +87,7 @@ fn parse_statements(lexed: &mut LexIter) -> KeepRes {
     let loc = curr_loc(lexed)?;
 
     let mut exps: Vec<Exp> = Vec::new();
-    let mut funs: Vec<(String, Rc<Function>)> = Vec::new();
+    let mut funs: Vec<(String, Box<Function>)> = Vec::new();
 
     while !terminator(lexed) {
         match lexed.peek() {
@@ -322,7 +322,7 @@ fn var_or_fun_call(lexed: &mut LexIter) -> KeepRes {
     }
 }
 
-fn fun_decl(lexed: &mut LexIter) -> Result<(String, Rc<Function>), (String, Location)> {
+fn fun_decl(lexed: &mut LexIter) -> Result<(String, Box<Function>), (String, Location)> {
     keyword(lexed, "fun")?;
     let name = id(lexed)?;
     parenthesis(lexed, '(')?;
@@ -350,13 +350,14 @@ fn fun_decl(lexed: &mut LexIter) -> Result<(String, Rc<Function>), (String, Loca
     let exp = statement(lexed)?;
 
     let func = Function {
-        p_types,
+        ret_type: return_type,
+        param_types: p_types,
         params,
         exp: Box::new(exp),
-        return_type,
+        is_checked: false
     };
 
-    Ok((name, Rc::new(func)))
+    Ok((name, Box::new(func)))
 }
 
 fn any_type(lexed: &mut LexIter) -> Result<ast::Type, (String, Location)> {

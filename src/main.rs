@@ -2,6 +2,7 @@ mod lexer;
 mod ast;
 mod parser;
 mod eval;
+mod type_checker;
 
 use std::{fs, time::Instant};
 
@@ -10,27 +11,24 @@ use parser::*;
 use ast::*;
 use eval::*;
 use simple_process_stats::ProcessStats;
+use type_checker::*;
 
 #[async_std::main]
 async fn main() {
     let before = Instant::now();
 
-    let file_name = "test.nbl";
+    let file_name = "recursion.nbl";
     let file = fs::read_to_string(format!("C:/Users/Joachim/Documents/VSCode/nebulang/src/test_programs/{file_name}"))
         .expect("Should have been able to read the file");
     
     let mem_before = ProcessStats::get().await.unwrap().memory_usage_bytes;
 
-    let l = lex(file.as_str());
+    match lex(file.as_str()) {
+        Ok(lexed) => {
+            match parse(&mut lexed.iter()) {
+                Ok(ref mut program) => {
+                    program.type_check(&mut TypeEnvironment::new());
 
-    //let l = lex("0");
-
-    match l {
-        Ok(p) => {
-            let prog = parse(&mut p.iter());
-
-            match prog {
-                Ok(program) => {
                     let mem_after = ProcessStats::get().await.unwrap().memory_usage_bytes;
 
                     let total_mem = (mem_after - mem_before) / 1_028;

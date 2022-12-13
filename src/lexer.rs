@@ -77,14 +77,14 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
     let mut program = LexedProgram::new();
 
     let mut iter = input.chars().into_iter().enumerate().peekable();
-    let mut col: usize = 1;
+    let mut col: usize = 0;
     let mut line = 1;
     let mut loc = Location {line, col};
 
     while let Some(&c) = iter.peek() {
         loc = Location {
             line, 
-            col: (c.0 - col + if line == 1 {1} else {0})
+            col: (c.0 + if line == 1 {1} else {0}) - col
         };
 
         let rest = &input[c.0..];

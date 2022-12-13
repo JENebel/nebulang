@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display};
 
 use crate::lexer::Location;
 
@@ -16,7 +16,7 @@ pub enum Exp {
     ///Condition, if true, else
     IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>, Location),
 
-    BlockExp(Vec<Exp>, Vec<(String, Rc<Function>)>, Location),
+    BlockExp(Vec<Exp>, Vec<(String, Box<Function>)>, Location),
     FunCallExp(String, Vec<Exp>, Location)
 }
 
@@ -31,21 +31,19 @@ pub enum Literal {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
-    pub p_types: Vec<Type>,
+    pub ret_type: Type,
+    pub param_types: Vec<Type>,
     pub params: Vec<String>,
     pub exp: Box<Exp>,
-    pub return_type: Type
+    pub is_checked: bool
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Type {
     Int,
     Float,
     Bool,
     Unit,
-
-    //Params, return type
-//FunType(Vec<Type>, Box<Type>),
 
     //Before type check
     Any
