@@ -1,2 +1,3 @@
-foo(24);
-fun foo(g: int): int = if(g == 0) foo(g - 1) else 69;
+fun john(a: int) = 1 + a;
+
+john(12)

@@ -17,7 +17,7 @@ use type_checker::*;
 async fn main() {
     let before = Instant::now();
 
-    let file_name = "recursion.nbl";
+    let file_name = "test.nbl";
     let file = fs::read_to_string(format!("C:/Users/Joachim/Documents/VSCode/nebulang/src/test_programs/{file_name}"))
         .expect("Should have been able to read the file");
     

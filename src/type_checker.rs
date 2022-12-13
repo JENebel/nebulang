@@ -77,24 +77,24 @@ impl<'a> Exp {
                     (Int, Float) => Float,
                     (Float, Int) => Float,
                     (Float, Float) => Float,
-                    _ => unreachable!("TYPE ERROR"),
+                    _ => panic!("TYPE ERROR"),
                 },
                 LessThan | GreaterThan | LessOrEquals | GreaterOrEquals => match (left.type_check(envir), right.type_check(envir)) {
                     (Int, Int) => Bool,
                     (Int, Float) => Bool,
                     (Float, Int) => Bool,
                     (Float, Float) => Bool,
-                    _ => unreachable!("TYPE ERROR"),
+                    _ => panic!("TYPE ERROR"),
                 },
                 Equals | NotEquals => match (left.type_check(envir), right.type_check(envir)) {
                     (Int, Int) => Bool,
                     (Float, Float) => Bool,
                     (Bool, Bool) => Bool,
-                    _ => unreachable!("Does not make sense"),
+                    _ => panic!("Does not make sense"),
                 },
                 And | Or => match (left.type_check(envir), right.type_check(envir)) {
                     (Bool, Bool) => Bool,
-                    _ => unreachable!("TYPE ERROR"),
+                    _ => panic!("TYPE ERROR"),
                 },
                 Assign => match (left.as_ref(), right.type_check(envir)) {
                     (VarExp(id, _), value) => {
@@ -104,7 +104,7 @@ impl<'a> Exp {
                         }
                         Unit
                     },
-                    _ => unreachable!("Not a variable id")
+                    _ => panic!("Not a variable id")
                 },
                 PlusAssign | MinusAssign => match (left.as_ref(), right.type_check(envir)) {
                     (VarExp(id, _), value) => {
@@ -115,36 +115,35 @@ impl<'a> Exp {
                         };
                         Unit
                     },
-                    _ => unreachable!("Not a variable id")
+                    _ => panic!("Not a variable id")
                 },
-                _ => unreachable!("Not a binary operator: '{op}'")
+                _ => panic!("Not a binary operator: '{op}'")
             },
             UnOpExp(op, exp, _) => match op {
                 Minus => match exp.type_check(envir) {
                     Int => Int,
-                    _ => unreachable!("TYPE ERROR"),
+                    _ => panic!("TYPE ERROR"),
                 },
                 Not => match exp.type_check(envir) {
                     Bool => Bool,
-                    _ => unreachable!("TYPE ERROR"),
+                    _ => panic!("TYPE ERROR"),
                 },
-                _ => unreachable!("Not a unary operator")
+                _ => panic!("Not a unary operator")
             },
             LiteralExp(lit, _) => {
                 match lit {
                     Literal::Int(_) => Int,
                     Literal::Float(_) => Float,
                     Literal::Bool(_) => Bool,
-                    Literal::Unit => unreachable!(),
+                    Literal::Unit => panic!(),
                 }
             },
             BlockExp(exps, funs, _) => {
-                envir.enter_scope(&funs);
-
                 for i in 0..funs.len() {
-                    if funs[i].1.is_checked { break }
                     funs[i].1.type_check(envir);
                 }
+
+                envir.enter_scope(&funs);
                 
                 let mut returned = Unit;
                 for exp in exps {
@@ -224,8 +223,6 @@ impl Function {
         } else if self.ret_type != res {
             panic!("Type does not match annotation")
         }
-
-        self.is_checked = true;
 
         res
     }

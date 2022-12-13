@@ -34,8 +34,7 @@ pub struct Function {
     pub ret_type: Type,
     pub param_types: Vec<Type>,
     pub params: Vec<String>,
-    pub exp: Box<Exp>,
-    pub is_checked: bool
+    pub exp: Box<Exp>
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]

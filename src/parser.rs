@@ -262,12 +262,13 @@ fn any_operator(lexed: &mut LexIter) -> Result<ast::Operator, (String, Location)
 }
 
 fn operator(lexed: &mut LexIter, operator: ast::Operator) -> Result<ast::Operator, (String, Location)> {
-    let actual = any_operator(lexed)?;
-
-    if actual == operator {
-        Ok(actual)
-    } else {
-        Err((format!("Expected {operator}, got {actual}"), curr_loc(lexed)?))
+    match any_operator(lexed) {
+        Ok(actual) => if actual == operator {
+            Ok(actual)
+        } else {
+            Err((format!("Expected '{operator}', got {actual}"), curr_loc(lexed)?))
+        },
+        Err(_) => Err((format!("Expected '{operator}'"), curr_loc(lexed)?)),
     }
 }
 
@@ -282,10 +283,6 @@ fn keyword(lexed: &mut LexIter, keyword: &str) -> DiscardRes {
         _ => Err((format!("Expected {keyword}"), curr_loc(lexed)?))
     }
 }
-
-/*fn fun_call(lexed: &mut LexIter) -> KeepRes {
-    todo!()
-}*/
 
 fn id(lexed: &mut LexIter) -> Result<String, (String, Location)> {
     match lexed.peek() {
@@ -353,8 +350,7 @@ fn fun_decl(lexed: &mut LexIter) -> Result<(String, Box<Function>), (String, Loc
         ret_type: return_type,
         param_types: p_types,
         params,
-        exp: Box::new(exp),
-        is_checked: false
+        exp: Box::new(exp)
     };
 
     Ok((name, Box::new(func)))
