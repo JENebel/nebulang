@@ -1,7 +1,5 @@
 # Nebulang
-Small interpreted language with dynamic scoping.
-
-Type checks are coming soon.
+Small interpreted language with static types and dynamic scoping.
 
 <br>
 Here are some examples:
@@ -13,8 +11,8 @@ Simple add function:
 
 Simple factorial function:
 
-    fun fact(n: int): int = {
-        fun f(n: int, acc: int) = {
+    fun fact(n: int) = {
+        fun f(n: int, acc: int): int = {
             if (n == 0) acc else {
                 f(n - 1, n * acc)
             }
@@ -67,7 +65,6 @@ There are the following operators:
 
 ### Let
     let foo = 12
-    
     let bar = false
     
 ### Functions
@@ -84,7 +81,7 @@ The example also illustrates that there is no need for a block if the function i
 
 <br>
 Type annotations are needed for function parameters, but it is optional for the return type.
-<br> The type checker might not be able to infer the return type, and in that case it will give an error. There is no type checker at the moment though.
+<br> The type checker might not be able to infer the return type, and in that case it will give an error.
 
 Type annotations for return types look like this:
 
