@@ -1,5 +1,5 @@
 # Nebulang
-Small interpreted language with static types dynamic scoping.
+Small interpreted language with static types and dynamic scoping.
 
 <br>
 Here are some examples:
