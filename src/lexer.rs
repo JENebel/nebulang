@@ -84,7 +84,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
     while let Some(&c) = iter.peek() {
         loc = Location {
             line, 
-            col: (c.0 + if line == 1 {1} else {0}) - col
+            col: c.0 - col
         };
 
         let rest = &input[c.0..];
@@ -149,6 +149,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
         iter.next();
     }
 
+    loc.col += 1;
     program.push(LexToken::EndOfInput, loc);
 
     Ok(program)

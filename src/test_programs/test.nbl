@@ -1,7 +1,7 @@
-fun foo(n: int) = {
+fun foo(n: int): int = {
     let bar = n;
-    bar = false;
-    bar
+    bar = 43;
+    bar * 2;
 }
 
 foo(5)

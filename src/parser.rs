@@ -320,6 +320,7 @@ fn var_or_fun_call(lexed: &mut LexIter) -> KeepRes {
 }
 
 fn fun_decl(lexed: &mut LexIter) -> Result<(String, Box<Function>), (String, Location)> {
+    let loc = curr_loc(lexed)?;
     keyword(lexed, "fun")?;
     let name = id(lexed)?;
     parenthesis(lexed, '(')?;
@@ -350,7 +351,8 @@ fn fun_decl(lexed: &mut LexIter) -> Result<(String, Box<Function>), (String, Loc
         ret_type: return_type,
         param_types: p_types,
         params,
-        exp: Box::new(exp)
+        exp: Box::new(exp),
+        loc
     };
 
     Ok((name, Box::new(func)))

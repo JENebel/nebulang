@@ -15,12 +15,17 @@ use type_checker::*;
 
 #[async_std::main]
 async fn main() {
-    let before = Instant::now();
+    //let path = std::env::args().next().unwrap();
 
-    let file_name = "test.nbl";
-    let file = fs::read_to_string(format!("C:/Users/Joachim/Documents/VSCode/nebulang/src/test_programs/{file_name}"))
+    let file_name = "test";
+    let path = format!("C:/Users/Joachim/Documents/VSCode/nebulang/src/test_programs/{file_name}.nbl");
+
+    println!("{path}");
+
+    let file = fs::read_to_string(path)
         .expect("Should have been able to read the file");
     
+    let before = Instant::now();
     let mem_before = ProcessStats::get().await.unwrap().memory_usage_bytes;
 
     //Lex
@@ -47,6 +52,7 @@ async fn main() {
         return
     }
 
+    //Run
     let mem_after = ProcessStats::get().await.unwrap().memory_usage_bytes;
 
     let total_mem = (mem_after - mem_before) / 1_028;

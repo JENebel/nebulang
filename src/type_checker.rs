@@ -259,7 +259,7 @@ impl Function {
         if self.ret_type == Any {
             self.ret_type = res
         } else if self.ret_type != res {
-            panic!("Type does not match annotation")
+            return Err((format!("Return type does not match annotation, got {res} and {} was annotated", self.ret_type), self.loc))
         }
 
         Ok(res)

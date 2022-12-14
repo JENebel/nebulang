@@ -31,6 +31,7 @@ pub enum Literal {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
+    pub loc: Location,
     pub ret_type: Type,
     pub param_types: Vec<Type>,
     pub params: Vec<String>,
