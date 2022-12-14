@@ -23,34 +23,46 @@ async fn main() {
     
     let mem_before = ProcessStats::get().await.unwrap().memory_usage_bytes;
 
-    match lex(file.as_str()) {
-        Ok(lexed) => {
-            match parse(&mut lexed.iter()) {
-                Ok(ref mut program) => {
-                    program.type_check(&mut TypeEnvironment::new());
+    //Lex
+    let lexed = match lex(file.as_str()) {
+        Ok(lexed) => lexed,
+        Err((msg, loc)) => {
+            println!("Lexer Error: {msg}. At: {loc}"); 
+            return
+        }
+    };
 
-                    let mem_after = ProcessStats::get().await.unwrap().memory_usage_bytes;
+    //Parse
+    let mut program = match parse(&mut lexed.iter()) {
+        Ok(program) => program,
+        Err((msg, loc)) => {
+            println!("Parse Error: {msg}. At: {loc}"); 
+            return
+        }
+    };
 
-                    let total_mem = (mem_after - mem_before) / 1_028;
-
-                    let elapsed = before.elapsed().as_millis();
-
-                    println!("Parsed in {elapsed}ms");
-                    println!("Program size: {}kB", total_mem);
-                    println!("Running");
-                    //println!("------------------------\n");
-
-                    let before = Instant::now();
-                    let res = program.evaluate(&mut Environment::new());
-                    let elapsed = before.elapsed().as_millis();
-
-                    //println!("\n------------------------");
-                    println!("Returned: {res}");
-                    println!("Time: {elapsed}ms");
-                },
-                Err(e) => println!("{} at {}", e.0, e.1),
-            }
-        },
-        Err(e) => println!("{e}"),
+    //Type check
+    if let Err((msg, loc)) = program.type_check(&mut TypeEnvironment::new()) {
+        println!("Type Error: {msg}. At: {loc}"); 
+        return
     }
+
+    let mem_after = ProcessStats::get().await.unwrap().memory_usage_bytes;
+
+    let total_mem = (mem_after - mem_before) / 1_028;
+
+    let elapsed = before.elapsed().as_millis();
+
+    println!("Parsed in {elapsed}ms");
+    println!("Program size: {}kB", total_mem);
+    println!("Running");
+    //println!("------------------------\n");
+
+    let before = Instant::now();
+    let res = program.evaluate(&mut Environment::new());
+    let elapsed = before.elapsed().as_millis();
+
+    //println!("\n------------------------");
+    println!("Returned: {res}");
+    println!("Time: {elapsed}ms");
 }

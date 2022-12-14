@@ -189,6 +189,7 @@ impl<'a> Exp {
             UnOpExp(op, exp, _) => match op {
                 Minus => match exp.evaluate(envir) {
                     Int(i) => Int(-i),
+                    Float(i) => Float(-i as f64),
                     _ => unreachable!("Runtime type-error should not happen"),
                 },
                 Not => match exp.evaluate(envir) {

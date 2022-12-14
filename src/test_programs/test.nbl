@@ -1,11 +1,7 @@
-fun fact(n: int) = {
-    fun f(n: int, acc: int): int = {
-        if (n == 0) acc else {
-            f(n - 1, n * acc)
-        }
-    }
-
-    f(n, 1);
+fun foo(n: int) = {
+    let bar = n;
+    bar = false;
+    bar
 }
 
-fact(5)
+foo(5)

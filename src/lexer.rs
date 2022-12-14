@@ -73,7 +73,7 @@ impl Display for LexedProgram {
     }
 }
 
-pub fn lex(input: &str) -> Result<LexedProgram, String> {
+pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
     let mut program = LexedProgram::new();
 
     let mut iter = input.chars().into_iter().enumerate().peekable();
@@ -142,7 +142,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, String> {
                 ',' => program.push(LexToken::Comma, loc),
 
                 ' ' | '\t' => {}
-                _ => return Err(format!("Lexer Error: What is this '{char}' doing at {loc}?"))
+                _ => return Err((format!("Invalid char: '{char}'"), loc))
             }
         }
 
