@@ -27,15 +27,12 @@ impl TypeEnvironment {
         }
     }
 
-    pub fn enter_scope (&mut self, funs: &Vec<(String, Box<Function>)>) {
+    pub fn enter_scope (&mut self) {
         self.var_scope_sizes.push(self.var_current_scope);
         self.fun_scope_sizes.push(self.fun_current_scope);
 
         self.var_current_scope = 0;
-        for i in 0..funs.len() {
-            self.fun_current_scope += 1;
-            self.fun_stack.push((funs[i].0.clone(), funs[i].1.clone()))
-        }
+        self.fun_current_scope = 0;
     }
 
     pub fn leave_scope(&mut self) {
@@ -46,7 +43,7 @@ impl TypeEnvironment {
 
         //Pop funs
         for _ in 0..self.fun_current_scope {
-            //self.fun_stack.pop();
+            self.fun_stack.pop();
         }
         
         //Pop scope size
@@ -54,17 +51,22 @@ impl TypeEnvironment {
         self.fun_current_scope = self.fun_scope_sizes.pop().expect("TYPES Fun stack was empty. Should never happen");
     }
 
-    pub fn push_variable(&mut self, id: &String, value: Type) {
+    pub fn push_variable(&mut self, id: String, value: Type) {
         self.var_current_scope += 1;
-        self.var_stack.push((id.clone(), value));
+        self.var_stack.push((id, value));
+    }
+
+    pub fn push_function(&mut self, id: String, value: Box<Function>) {
+        self.fun_current_scope += 1;
+        self.fun_stack.push((id, value));
     }
 
     pub fn lookup_var(&self, id: &String) -> &Type {
-        &self.var_stack.iter().rev().find(|var| &var.0 == id).expect("TYPES Var id not found. Should never happen").1
+        &self.var_stack.iter().rev().find(|var| &var.0 == id).expect("TYPES Var id not found").1
     }
 
     pub fn lookup_fun(&self, id: &String) -> &Function {
-        &self.fun_stack.iter().rev().find(|var| var.0 == *id).expect(format!("TYPES Fun id '{}' not found. Should never happen", id).as_str()).1
+        &self.fun_stack.iter().rev().find(|var| var.0 == *id).expect(format!("TYPES Fun id '{}' not found", id).as_str()).1
     }
 }
 
@@ -139,12 +141,22 @@ impl<'a> Exp {
                 }
             },
             BlockExp(exps, funs, _) => {
+                //Type check of funs
+                envir.enter_scope();
+                for i in 0..funs.len() {
+                    envir.push_function(funs[i].0.clone(), funs[i].1.clone());
+                }
                 for i in 0..funs.len() {
                     funs[i].1.type_check(envir);
                 }
+                envir.leave_scope();
 
-                envir.enter_scope(&funs);
-                
+                //Type check of block
+                envir.enter_scope();
+                for i in 0..funs.len() {
+                    envir.push_function(funs[i].0.clone(), funs[i].1.clone());
+                }
+
                 let mut returned = Unit;
                 for exp in exps {
                     returned = exp.type_check(envir);
@@ -157,7 +169,7 @@ impl<'a> Exp {
             VarExp(id, _) => envir.lookup_var(&id).clone(),
             LetExp(id, exp, _) => {
                 let value = exp.type_check(envir);
-                envir.push_variable(&id, value); 
+                envir.push_variable(id.clone(), value); 
                 Unit
             },
             IfElseExp(cond, pos, neg, _) => {
@@ -208,10 +220,10 @@ impl Function {
             return Unit
         }
         
-        envir.enter_scope(&Vec::new());
+        envir.enter_scope();
 
         for i in 0..self.param_types.len() {
-            envir.push_variable(&self.params[i], self.param_types[i].clone());
+            envir.push_variable(self.params[i].clone(), self.param_types[i].clone());
         }
 
         let res = self.exp.type_check(envir);

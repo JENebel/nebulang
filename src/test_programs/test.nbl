@@ -1,3 +1,11 @@
-fun john(a: int) = 1 + a;
+fun fact(n: int) = {
+    fun f(n: int, acc: int): int = {
+        if (n == 0) acc else {
+            f(n - 1, n * acc)
+        }
+    }
 
-john(12)
+    f(n, 1);
+}
+
+fact(5)
