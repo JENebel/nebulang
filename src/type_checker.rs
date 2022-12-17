@@ -3,83 +3,10 @@ use Type::*;
 use Operator::*;
 use Exp::*;
 
-#[derive(Debug)]
-pub struct TypeEnvironment {
-    var_stack: Vec<(String, Type)>,
-    var_scope_sizes: Vec<u16>,
-    var_current_scope: u16,
-
-    fun_stack: Vec<(String, Box<Function>)>,
-    fun_scope_sizes: Vec<u16>,
-    fun_current_scope: u16
-}
-
-impl TypeEnvironment {
-    pub fn new() -> Self {
-        Self { 
-            var_stack: Vec::new(),
-            var_scope_sizes: Vec::new(),
-            var_current_scope: 0,
-
-            fun_stack: Vec::new(),
-            fun_scope_sizes: Vec::new(),
-            fun_current_scope: 0
-        }
-    }
-
-    pub fn enter_scope (&mut self) {
-        self.var_scope_sizes.push(self.var_current_scope);
-        self.fun_scope_sizes.push(self.fun_current_scope);
-
-        self.var_current_scope = 0;
-        self.fun_current_scope = 0;
-    }
-
-    pub fn leave_scope(&mut self) {
-        //Pop vars
-        for _ in 0..self.var_current_scope {
-            self.var_stack.pop();
-        }
-
-        //Pop funs
-        for _ in 0..self.fun_current_scope {
-            self.fun_stack.pop();
-        }
-        
-        //Pop scope size
-        self.var_current_scope = self.var_scope_sizes.pop().expect("TYPES Var stack was empty. Should never happen");
-        self.fun_current_scope = self.fun_scope_sizes.pop().expect("TYPES Fun stack was empty. Should never happen");
-    }
-
-    pub fn push_variable(&mut self, id: String, value: Type) {
-        self.var_current_scope += 1;
-        self.var_stack.push((id, value));
-    }
-
-    pub fn push_function(&mut self, id: String, value: Box<Function>) {
-        self.fun_current_scope += 1;
-        self.fun_stack.push((id, value));
-    }
-
-    pub fn lookup_var(&self, id: &String) -> Result<Type, String> {
-        match self.var_stack.iter().rev().find(|var| &var.0 == id) {
-            Some(typ) => Ok(typ.1),
-            None => Err(format!("Var {id} not found")),
-        }
-    }
-
-    pub fn lookup_fun(&self, id: &String) -> Result<Box<Function>, String> {
-        match self.fun_stack.iter().rev().find(|fun| &fun.0 == id) {
-            Some(fun) => Ok(fun.1.clone()),
-            None => Err(format!("Fun {id} not found")),
-        }
-    }
-}
-
 type TypeResult = Result<Type, (String, Location)>;
 
 impl<'a> Exp {
-    pub fn type_check(&'a mut self, envir: &'a mut TypeEnvironment) -> TypeResult {
+    pub fn type_check(&'a mut self, envir: &'a mut Environment<Type>) -> TypeResult {
         match self {
             BinOpExp(left, op, right, loc) => match op {
                 Plus | Minus | Multiply | Divide | Modulo => match (left.type_check(envir)?, right.type_check(envir)?) {
@@ -241,7 +168,7 @@ impl<'a> Exp {
 }
 
 impl Function {
-    pub fn type_check(&mut self, envir: &mut TypeEnvironment) -> TypeResult {
+    pub fn type_check(&mut self, envir: &mut Environment<Type>) -> TypeResult {
         if self.ret_type == Unit {
             return Ok(Unit)
         }
