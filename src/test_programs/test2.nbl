@@ -1,3 +1,8 @@
 let _2 = 12;
-_2 += 1;
+/*Comment
+async_stdad
+
+ablesda
+discardd*/
+_2 += *1;
 _2

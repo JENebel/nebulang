@@ -11,9 +11,9 @@ type LexIter<'a> = Peekable<Iter<'a, (LexToken, Location)>>;
 type KeepRes = Result<Exp, (String, Location)>;
 type DiscardRes = Result<(), (String, Location)>;
 
-lazy_static!(
-    ///All legal operators
-    pub static ref OPERATORS: Vec<&'static str> = Vec::from(["+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
+lazy_static!(//                                                  for
+    ///All legal operators                                   [ comments ]
+    pub static ref OPERATORS: Vec<&'static str> = Vec::from([ "//", "/*" , "+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
 
     ///All legal keywords
     pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun"]);

@@ -48,7 +48,7 @@ Counts number of primes up to 1000:
 - All statements need a semicolon after it, except the last line in a block (and in the program itself)
 - Blocks do not need a semicolon after it, this includes if, while, functions etc.
 - Declarations (fun, let exps) return unit
-- variable and function names must start with a letter or '_'
+- Variable and function names must start with a letter or '_'
 
 <br>
 
@@ -67,6 +67,17 @@ There are the following operators:
 
     +=, -=, +, -, *, /, %, <=, >=, <, >, !=, !, ==, =, &&, ||
 
+## Comments
+Rest-of-line comments with // <br>
+Block comments with /* */
+<br>
+
+    //This is a single line comment
+
+    /* This
+    is a
+    block 
+    comment */
 ## Let
     let foo = 12
     let bar = false

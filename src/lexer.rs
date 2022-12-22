@@ -117,9 +117,33 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
             continue
         }
 
-        //Match operator
+        //Match operator and comment
         if OP_FIRST.iter().any(|c| char == *c) {
-            program.push(LexToken::Operator(get_operator(&mut iter, rest)), loc);
+            let op = get_operator(&mut iter, rest);
+            //Comments
+            if op == "//" {
+                while let Some(c) = iter.next() {
+                    if c.1 == '\n' {
+                        line += 1;
+                        col = c.0;
+                        break;
+                    }
+                }
+            } else if op == "/*" {
+                let mut last = ' ';
+                while let Some(c) = iter.next() {
+                    if c.1 == '\n' {
+                        line += 1;
+                        col = c.0;
+                    } else if last == '*' && c.1 == '/' {
+                        break;
+                    }
+                    last = c.1;
+                }
+            //Normal operator
+            } else {
+                program.push(LexToken::Operator(op), loc);
+            }
             continue
         }
 
