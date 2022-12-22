@@ -208,6 +208,22 @@ impl<'a> Exp {
                 envir.declare_fun(&id);
                 Unit
             },
+            ForExp(let_exp, cond, increment, body, _) => {
+                envir.enter_scope();
+                let_exp.evaluate(envir);
+
+                loop {
+                    if let Literal::Bool(false) = cond.evaluate(envir) {
+                        break;
+                    }
+                    body.evaluate(envir);
+                    increment.evaluate(envir);
+                }
+
+                envir.leave_scope();
+
+                Unit
+            },
         }
     }
 }

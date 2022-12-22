@@ -137,7 +137,7 @@ impl<'a> Exp {
             },
             WhileExp(cond, _, loc) => {
                 if cond.type_check(envir)? != Bool {
-                    return Err((format!("Condition for while must be boolean, got {cond}"), *loc))
+                    return Err((format!("Condition for while must be boolean, got '{cond}'"), *loc))
                 }
                 Ok(Unit)
             }
@@ -172,6 +172,15 @@ impl<'a> Exp {
                 envir.declare_fun(&id);
                 let mut clo = envir.lookup_fun(&id).unwrap();
                 clo.fun.type_check(&mut clo.envir)
+            },
+            ForExp(let_exp, cond, increment, body, _) => {
+                envir.enter_scope();
+                let_exp.type_check(envir)?;
+                cond.type_check(envir)?;
+                increment.type_check(envir)?;
+                body.type_check(envir)?;
+                envir.leave_scope();
+                Ok(Unit)
             },
         }
     }

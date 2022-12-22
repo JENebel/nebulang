@@ -1,8 +1,34 @@
-let _2 = 12;
-/*Comment
-async_stdad
+for(N) {
+    // Repeated N times
+}
 
-ablesda
-discardd*/
-_2 += *1;
-_2
+for(ID, FROM, TO, BY) { // if TO > FROM: to exclusive
+    ...                 // if FROM > TO: from exlcusice
+}
+
+for(i, 0, 10, 1) {
+    // Repeated 10 times
+}
+
+for(ID, FROM, TO) { // BY == 1
+
+}
+
+for(i, 10, 0) {
+    // Repeated 10 times
+}
+
+
+
+
+
+
+
+
+for(i from 0 to 10 by 1) {
+
+}
+
+for(i: int = 0, i < TO, i += 1) {
+
+}

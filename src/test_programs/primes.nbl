@@ -1,15 +1,12 @@
-let i = 0;
 let primes = 0;
-while(i < 5000) {
+for(i, 0, 1000) {
     let p = true;
     let d = 2;
-    let go = true;
     if(i <= 1) p = false;
 	while (d<i-1 && p) {
         if(i%d==0) p=false;
         d+=1
     }
     if(p) primes += 1;
-    i+=1
-};
+}
 primes

@@ -113,19 +113,23 @@ impl<T: Clone> Environment<T> {
     }
 
     pub fn leave_scope(&mut self) {
-        if let Some(head) = self.var_head.take() {
-            //Restores scope to last var in last scope
-            if head.borrow().scope_depth == self.scope_depth {
-                self.var_head = head.borrow().get_scope(self.scope_depth + 10);
-            }
-        }
-        //Same thing for funs
-        if let Some(head) = self.fun_head.take() {
-            if head.borrow().scope_depth == self.scope_depth {
-                self.fun_head = head.borrow().get_scope(self.scope_depth + 10);
-            }
-        }
         self.scope_depth -= 1;
+        self.var_head = match &self.var_head {
+            Some(head) => if head.borrow().scope_depth > self.scope_depth {
+                head.borrow().get_scope(self.scope_depth).clone()
+            } else {
+                Some(head.clone())
+            },
+            None => None,
+        };
+        self.fun_head = match &self.fun_head {
+            Some(head) => if head.borrow().scope_depth > self.scope_depth {
+                head.borrow().get_scope(self.scope_depth).clone()
+            } else {
+                Some(head.clone())
+            },
+            None => None,
+        };
     }
 
     pub fn push_variable(&mut self, id: String, value: T) {

@@ -24,19 +24,16 @@ Simple factorial function:
     
 Counts number of primes up to 1000:
 
-    let i = 0;
     let primes = 0;
-    while(i < 1000) {
+    for(i, 0, 1000) {
         let p = true;
         let d = 2;
-        let go = true;
         if(i <= 1) p = false;
         while (d<i-1 && p) {
-            if(i%d == 0) p = false;
+            if(i%d==0) p=false;
             d+=1
         }
         if(p) primes += 1;
-        i+=1
     }
     primes
     
@@ -47,7 +44,7 @@ Counts number of primes up to 1000:
 - The last statement in a block (and in the program itself), is the return value.
 - All statements need a semicolon after it, except the last line in a block (and in the program itself)
 - Blocks do not need a semicolon after it, this includes if, while, functions etc.
-- Declarations (fun, let exps) return unit
+- Declarations (fun and let expsression) and assignments all return unit
 - Variable and function names must start with a letter or '_'
 
 <br>
@@ -125,4 +122,48 @@ Here is an example of a while loop:
         i++
     }
 ## For
-For is not implemented yet
+There are several ways to make a for loop.
+<br>
+The simplest is just repeating something N times, where N is an int:
+
+    for(N) {
+        //Repeats N times
+    }
+<br>
+Often we need a more flexible for loop. The general synta is as follows:
+
+    for(ID, FROM, TO, BY) {
+        //Body
+    }
+
+BY can be left out, and it will default to 1. These are equivalent:
+
+    for(i, 0, 10, 1) {
+        // Repeated 10 times
+    }
+    for(i, 0, 10) {
+        // Repeated 10 times
+    }
+<br>
+The loop variable will move from FROM to TO by BY.<br>
+If TO is smaller than FROM, it will just move from highest to lowest.<br><br>
+If TO > FROM then TO will be exclusive. <br>
+If FROM > TO then FROM will be exlcusice. <br>
+If equal the loop will not run at all. <br><br>
+
+Here is a visualization:
+
+    for(i, 10, 0, 1) {
+        // The loop variant will take these values
+        // i = 9
+        // i = 8
+        // ...
+        // i = 0
+    }
+    for(i, 0, 10, 1) {
+        // The loop variant will take these values
+        // i = 0
+        // i = 1
+        // ...
+        // i = 9
+    }

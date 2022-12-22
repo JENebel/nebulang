@@ -55,6 +55,7 @@ pub fn statement(lexed: &mut LexIter) -> KeepRes {
             //Fun decls are handled in: parse_statements()
             Paren('{') =>        block(lexed),
             Keyword("while") =>  wwhile(lexed),
+            Keyword("for") =>  ffor(lexed),
             Keyword("let") =>    llet(lexed),
             _ => expression(lexed)
         }
@@ -215,9 +216,102 @@ fn wwhile(lexed: &mut LexIter) -> KeepRes {
     Ok(Exp::WhileExp(Box::new(cond), Box::new(exp), loc))
 }
 
-/*fn ffor(lexed: LexIter) -> KeepRes {
-    todo!();
-}*/
+fn ffor(lexed: &mut LexIter) -> KeepRes {
+    let loc = curr_loc(lexed)?;
+
+    keyword(lexed, "for")?;
+    parenthesis(lexed, '(')?;
+    if let Ok(id) = id(lexed) {
+        //Normal for loop
+        comma(lexed)?;
+
+        let from_f: f64;
+        let from = literal(lexed)?;
+        let from_loc;
+        match from {
+            Exp::LiteralExp(Literal::Int(i), loc) => { //Ok
+                from_f = i as f64;
+                from_loc = loc;
+            },
+            Exp::LiteralExp(Literal::Float(i), loc) => { //Ok
+                from_f = i;
+                from_loc = loc
+            },
+            Exp::LiteralExp(lit, loc) => return Err((format!("From in for must be int or float, got '{lit}'"), loc)),
+            _ => unreachable!("Unreachable because it it parsed to a literal")
+        };
+        let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(from), from_loc));
+
+        comma(lexed)?;
+
+        let to_f: f64;
+        let to = literal(lexed)?;
+        let to_loc;
+        match to {
+            Exp::LiteralExp(Literal::Int(i), loc) => { //Ok
+                to_f = i as f64;
+                to_loc = loc;
+            },
+            Exp::LiteralExp(Literal::Float(i), loc) => { //Ok
+                to_f = i;
+                to_loc = loc
+            },
+            Exp::LiteralExp(lit, loc) => return Err((format!("To in for must be int or float, got '{lit}'"), loc)),
+            _ => unreachable!("Unreachable because it it parsed to a literal")
+        };
+
+        let op;
+        let inc;
+        if to_f > from_f {
+            op = ast::Operator::LessThan;
+            inc = 1;
+        } else {
+            op = ast::Operator::GreaterThan;
+            inc = -1;
+        }
+        let cond = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id.clone(), from_loc)), op, Box::new(to), to_loc));
+
+        let inc_exp = if let Ok(_) = comma(lexed) {
+            let mut exp = expression(lexed)?;
+            if inc < 0 {
+                exp = Exp::UnOpExp(ast::Operator::Minus, Box::new(exp), loc)
+            }
+            Box::new(exp)
+        } else {
+            Box::new(Exp::LiteralExp(Literal::Int(inc), to_loc))
+        };
+
+        let increment = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id, to_loc)), ast::Operator::PlusAssign, inc_exp, to_loc));
+
+
+        parenthesis(lexed, ')')?;
+        let body = Box::new(statement(lexed)?);
+
+        Ok(Exp::ForExp(
+            let_exp,
+            cond,
+            increment,
+            body,
+            loc
+        ))
+    } else {
+        //Simple for loop
+        let id = format!(".for");
+        let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(Exp::LiteralExp(Literal::Int(0), loc)), loc));
+        let cond = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id.clone(), loc)), ast::Operator::LessThan, Box::new(expression(lexed)?), loc));
+        let increment = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id, loc)), ast::Operator::PlusAssign, Box::new(Exp::LiteralExp(Literal::Int(1), loc)), loc));
+        parenthesis(lexed, ')')?;
+        let body = Box::new(statement(lexed)?);
+
+        Ok(Exp::ForExp(
+            let_exp,
+            cond,
+            increment,
+            body,
+            loc
+        ))
+    }
+}
 
 fn block(lexed: &mut LexIter) -> KeepRes {
     parenthesis(lexed, '{')?;

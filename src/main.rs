@@ -20,7 +20,7 @@ async fn main() {
     let path = match args.next() {
         Some(path) => path,
         None => {
-            let file_name = "test2";
+            let file_name = "test3";
             format!("C:/Users/Joachim/Documents/VSCode/nebulang/src/test_programs/{file_name}.nbl")
         }
     };

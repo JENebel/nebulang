@@ -10,6 +10,9 @@ pub enum Exp {
     VarExp(String, Location),
     WhileExp(Box<Exp>, Box<Exp>, Location),
 
+    //let exp, comparison, increment, body
+    ForExp(Box<Exp>, Box<Exp>, Box<Exp>, Box<Exp>, Location),
+
     //Id, exp
     LetExp(String, Box<Exp>, Location),
 
@@ -140,6 +143,7 @@ impl Display for Exp {
                 Exp::WhileExp(cond, exp, _) => format!("while({cond})  {exp}"),
                 Exp::FunCallExp(_, _, _) => format!("FunCall"),
                 Exp::FunDeclExp(_, _) => format!("FunDecl"),
+                Exp::ForExp(_, _, _, _, _) => format!("For"),
             }
         )
     }
