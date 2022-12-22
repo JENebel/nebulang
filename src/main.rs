@@ -7,13 +7,10 @@ mod environment;
 
 use std::{fs, time::Instant};
 
-use async_std::io::{stdin, ReadExt};
 use lexer::*;
 use parser::*;
 use ast::*;
-use eval::*;
 use simple_process_stats::ProcessStats;
-use type_checker::*;
 use environment::*;
 
 #[async_std::main]
@@ -23,7 +20,7 @@ async fn main() {
     let path = match args.next() {
         Some(path) => path,
         None => {
-            let file_name = "test";
+            let file_name = "test2";
             format!("C:/Users/Joachim/Documents/VSCode/nebulang/src/test_programs/{file_name}.nbl")
         }
     };

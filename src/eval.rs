@@ -132,8 +132,9 @@ impl<'a> Exp {
                     envir.push_function(fun.0.clone(), fun.1.clone())
                 }
 
-                let mut returned = Unit;
+                envir.update_fun_envirs();
 
+                let mut returned = Unit;
                 for exp in exps {
                     returned = exp.evaluate(envir);
                 }
@@ -174,29 +175,38 @@ impl<'a> Exp {
                 Unit
             }
             FunCallExp(id, args, _) => {
-                envir.enter_scope();
-
-                let func = envir.lookup_fun(id).unwrap().clone();
-
                 let mut lits = Vec::new();
-                
                 for i in 0..args.len() {
                     lits.push(args[i].evaluate(envir));
                 }
 
-                for i in 0..args.len() {
-                    envir.push_variable(func.params[i].clone(), lits[i]);
-                }
+                let mut closure = envir.lookup_fun(id).unwrap();
+                //If it is not declared, it takes the most recent scope from decl scope
+                let res: Literal = if closure.declared {
+                    closure.envir.enter_scope();
+                    for i in 0..args.len() {
+                        closure.envir.push_variable(closure.fun.params[i].clone(), lits[i]);
+                    }
+                    let res = closure.fun.exp.evaluate(&mut closure.envir);
+                    closure.envir.leave_scope();
+                    res
+                } else {
+                    let mut envir = envir.get_scope(closure.decl_scope());
+                    for i in 0..args.len() {
+                        envir.push_variable(closure.fun.params[i].clone(), lits[i]);
+                    }
+                    closure.fun.exp.evaluate(&mut envir)
+                };
 
-                let res = func.exp.evaluate(envir);
-
-                envir.leave_scope();
-
-                if func.ret_type == ast::Type::Unit {
+                if closure.fun.ret_type == ast::Type::Unit {
                     Unit
                 } else {
                     res
                 }
+            },
+            FunDeclExp(id, _) => {
+                envir.declare_fun(&id);
+                Unit
             },
         }
     }

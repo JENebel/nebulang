@@ -1,15 +1,17 @@
 use std::{rc::Rc, cell::RefCell};
 use super::*;
 
+#[derive(Debug)]
 pub struct EnvNode<T> {
+    scope_depth: u32,
     id: String,
     value: T,
     next: Option<Rc<RefCell<EnvNode<T>>>>,
 }
 
 impl<T: Clone> EnvNode<T> {
-    pub fn new(id: String, value: T, next: Option<Rc<RefCell<EnvNode<T>>>>) -> Self {
-        Self { id, value, next }
+    pub fn new(id: String, value: T, next: Option<Rc<RefCell<EnvNode<T>>>>, scope_depth: u32) -> Self {
+        Self { id, value, next, scope_depth }
     }
 
     pub fn lookup(&self, id: &String) -> Result<T, String> {
@@ -18,9 +20,21 @@ impl<T: Clone> EnvNode<T> {
         }
 
         if let Some(next) = &self.next {
-            next.as_ref().borrow().lookup(id)
+            next.borrow().lookup(id)
         } else {
-            Err(format!("Id {id} not found"))
+            Err(format!("Id '{id}' not found"))
+        }
+    }
+
+    pub fn id_exist_in_scope(&self, id: &String, scope: u32) -> bool {
+        if self.scope_depth != scope {
+            false
+        } else if self.id == *id {
+            true
+        } else if let Some(next) = &self.next {
+            next.borrow().id_exist_in_scope(id, scope)
+        } else {
+            false
         }
     }
 
@@ -36,82 +50,127 @@ impl<T: Clone> EnvNode<T> {
             panic!("Mutate failed as id did not exist. Should never happen after correct type check")
         }
     }
+    
+    pub fn get_scope(&self, scope: u32) -> Option<Rc<RefCell<EnvNode<T>>>> {
+        if let Some(next) = &self.next {
+            let next_scope = next.borrow().scope_depth;
+            if next_scope > scope {
+                next.borrow().get_scope(scope)
+            } else {
+                Some(next.clone())
+            }
+        } else {
+            None
+        }
+    }
 }
 
-pub struct Environment<T> {
-    var_head: Option<Rc<RefCell<EnvNode<T>>>>,
-    var_scope_sizes: Vec<u16>,
-    var_current_scope: u16,
+impl<T: Clone> EnvNode<Closure<T>> {
+    pub fn declare_fun(&mut self, id: &String, new_head: Option<Rc<RefCell<EnvNode<T>>>>) {
+        if self.id == *id {
+            self.value.envir.set_var_head(new_head);
+            self.value.declared = true;
+            return;
+        }
 
-    fun_head: Option<Rc<RefCell<EnvNode<Box<Function>>>>>,
-    fun_scope_sizes: Vec<u16>,
-    fun_current_scope: u16
+        if let Some(next) = &mut self.next {
+            next.borrow_mut().declare_fun(id, new_head)
+        } else {
+            panic!("Function did not exist. Should never happen after correct type check")
+        }
+    }
+
+    pub fn update_fun_envir(&mut self, scope: u32, new_head: Rc<RefCell<EnvNode<Closure<T>>>>) {
+        if self.scope_depth == scope {
+            self.value.envir.set_fun_head(Some(new_head.clone()));
+            if let Some(next) = &self.next {
+                next.borrow_mut().update_fun_envir(scope, new_head)
+            }
+        } else {
+            return;
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Environment<T> {
+    pub scope_depth: u32,
+    var_head: Option<Rc<RefCell<EnvNode<T>>>>,
+    fun_head: Option<Rc<RefCell<EnvNode<Closure<T>>>>>,
 }
 
 impl<T: Clone> Environment<T> {
     pub fn new() -> Self {
         Self { 
+            scope_depth: 0,
             var_head: None,
-            var_scope_sizes: Vec::new(), 
-            var_current_scope: 0, 
-            fun_head: None, 
-            fun_scope_sizes: Vec::new(), 
-            fun_current_scope: 0
+            fun_head: None,
         }
     }
 
     pub fn enter_scope (&mut self) {
-        self.var_scope_sizes.push(self.var_current_scope);
-        self.fun_scope_sizes.push(self.fun_current_scope);
-
-        self.var_current_scope = 0;
-        self.fun_current_scope = 0;
+        self.scope_depth += 1;
     }
 
     pub fn leave_scope(&mut self) {
-        //Pop vars
-        for _ in 0..self.var_current_scope {
-            self.var_head = self.var_head.take();
+        if let Some(head) = self.var_head.take() {
+            //Restores scope to last var in last scope
+            if head.borrow().scope_depth == self.scope_depth {
+                self.var_head = head.borrow().get_scope(self.scope_depth + 10);
+            }
         }
-
-        //Pop funs
-        for _ in 0..self.fun_current_scope {
-            self.fun_head = self.fun_head.take();
+        //Same thing for funs
+        if let Some(head) = self.fun_head.take() {
+            if head.borrow().scope_depth == self.scope_depth {
+                self.fun_head = head.borrow().get_scope(self.scope_depth + 10);
+            }
         }
-
-        //Pop scope sizes
-        self.var_current_scope = self.var_scope_sizes.pop().expect("TYPES Var stack was empty. Should never happen");
-        self.fun_current_scope = self.fun_scope_sizes.pop().expect("TYPES Fun stack was empty. Should never happen");
+        self.scope_depth -= 1;
     }
 
     pub fn push_variable(&mut self, id: String, value: T) {
-        let new_var = EnvNode::new(id, value, self.var_head.take());
+        let new_var = EnvNode::new(id, value, self.var_head.take(), self.scope_depth);
         self.var_head = Some(Rc::new(RefCell::new(new_var)));
-        self.var_current_scope += 1;
     }
 
-    pub fn push_function(&mut self, id: String, value: Box<Function>) {
-        let new_fun = EnvNode::new(id, value, self.fun_head.take());
+    pub fn push_function(&mut self, id: String, fun: Box<Function>) {
+        let new_fun = EnvNode::new(id, Closure::new(fun.clone(), self.clone()), self.fun_head.clone(), self.scope_depth);
         self.fun_head = Some(Rc::new(RefCell::new(new_fun)));
-        self.fun_current_scope += 1;
     }
-
     
     pub fn lookup_var(&self, id: &String) -> Result<T, String> {
         match &self.var_head {
             Some(head) => {
                 head.borrow().lookup(id)
             },
-            None => Err(format!("Variable not found")),
+            None => Err(format!("Variable '{id}' not found")),
         }
     }
 
-    pub fn lookup_fun(&self, id: &String) -> Result<Box<Function>, String> {
+    pub fn lookup_fun(&self, id: &String) -> Result<Closure<T>, String> {
         match &self.fun_head {
             Some(head) => {
                 head.borrow().lookup(id)
             },
-            None => Err(format!("Variable not found")),
+            None => Err(format!("Function '{id}' not found")),
+        }
+    }
+
+    pub fn var_exist_in_scope(&self, id: &String) -> bool {
+        match &self.var_head {
+            Some(head) => {
+                head.borrow().id_exist_in_scope(id, self.scope_depth)
+            },
+            None => false,
+        }
+    }
+
+    pub fn fun_exist_in_scope(&self, id: &String) -> bool {
+        match &self.fun_head {
+            Some(head) => {
+                head.borrow().id_exist_in_scope(id, self.scope_depth)
+            },
+            None => false,
         }
     }
 
@@ -120,23 +179,67 @@ impl<T: Clone> Environment<T> {
             head.as_ref().borrow_mut().mutate(id, value);
         }
     }
+
+    ///Enables recursion by updating all scope functions with environment containing all other
+    pub fn update_fun_envirs(&mut self) {
+        if let Some(head) = &self.fun_head {
+            head.borrow_mut().update_fun_envir(self.scope_depth, head.clone())
+        }
+    }
+
+    ///Prepares the function for calls
+    pub fn declare_fun(&mut self, id: &String) {
+        //Find the function closure and update the variable closure for declaration point
+        if let Some(head) = &self.fun_head {
+            head.borrow_mut().declare_fun(&id, self.var_head.clone())
+        }
+    }
+
+    pub fn set_var_head(&mut self, new_head: Option<Rc<RefCell<EnvNode<T>>>>) {
+        self.var_head = new_head
+    }
+
+    pub fn set_fun_head(&mut self, new_head: Option<Rc<RefCell<EnvNode<Closure<T>>>>>) {
+        self.fun_head = new_head
+    }
+
+    pub fn get_scope(&mut self, scope: u32) -> Self {
+        let var_head = match &self.var_head {
+            Some(head) => if head.borrow().scope_depth > scope {
+                head.borrow().get_scope(scope).clone()
+            } else {
+                Some(head.clone())
+            },
+            None => None,
+        };
+        let fun_head = match &self.fun_head {
+            Some(head) => if head.borrow().scope_depth > scope {
+                head.borrow().get_scope(scope).clone()
+            } else {
+                Some(head.clone())
+            },
+            None => None,
+        };
+        Self { 
+            scope_depth: scope,
+            var_head,
+            fun_head
+        }
+    }
 }
 
 impl<T> Clone for Environment<T> {
     fn clone(&self) -> Self {
         Self {
+            scope_depth: self.scope_depth, 
             var_head: self.var_head.clone(), 
-            var_scope_sizes: self.var_scope_sizes.clone(), 
-            var_current_scope: self.var_current_scope, 
             fun_head: self.fun_head.clone(), 
-            fun_scope_sizes: self.fun_scope_sizes.clone(),
-            fun_current_scope: self.fun_current_scope
         }
     }
 }
 
 mod environment_tests {
-    use super::*;
+    //use super::*;
 
     #[test]
     fn test1() {

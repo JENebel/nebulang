@@ -91,7 +91,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
 
         let char = c.1;
 
-        if char.is_alphabetic() {
+        if char.is_alphabetic() || char == '_' {
             let name = get_id(&mut iter);
 
             //Special cases
@@ -157,10 +157,13 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
 
 fn get_id<T: Iterator<Item = (usize, char)>>(iter: &mut Peekable<T>) -> String {
     let mut res = String::new();
-    while iter.peek().is_some() && iter.peek().unwrap().1.is_alphanumeric() {
+    while iter.peek().is_some() {
+        let char = iter.peek().unwrap().1;
+        if !(char.is_alphanumeric() || char == '_') {
+            break;
+        }
         res = format!("{res}{}", iter.next().unwrap().1);
     }
-
     return res
 }
 

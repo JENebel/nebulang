@@ -92,7 +92,9 @@ fn parse_statements(lexed: &mut LexIter) -> KeepRes {
     while !terminator(lexed) {
         match lexed.peek() {
             Some((Keyword("fun"), _)) => {
-                funs.push(fun_decl(lexed)?)
+                let decl = fun_decl(lexed)?;
+                exps.push(decl.0);
+                funs.push((decl.1, decl.2));
             },
             _ => exps.push(statement(lexed)?)
         }
@@ -319,7 +321,7 @@ fn var_or_fun_call(lexed: &mut LexIter) -> KeepRes {
     }
 }
 
-fn fun_decl(lexed: &mut LexIter) -> Result<(String, Box<Function>), (String, Location)> {
+fn fun_decl(lexed: &mut LexIter) -> Result<(Exp, String, Box<Function>), (String, Location)> {
     let loc = curr_loc(lexed)?;
     keyword(lexed, "fun")?;
     let name = id(lexed)?;
@@ -355,7 +357,7 @@ fn fun_decl(lexed: &mut LexIter) -> Result<(String, Box<Function>), (String, Loc
         loc
     };
 
-    Ok((name, Box::new(func)))
+    Ok((Exp::FunDeclExp(name.clone(), loc), name, Box::new(func)))
 }
 
 fn any_type(lexed: &mut LexIter) -> Result<ast::Type, (String, Location)> {

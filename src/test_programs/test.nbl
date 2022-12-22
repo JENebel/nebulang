@@ -1,7 +1,10 @@
-fun foo(n: int): int = {
-    let bar = n;
-    bar = 43;
-    bar * 2;
+let g = 0;
+fun bar(n: int): unit = {
+    if(n>0) baz(n);
 }
-
-foo(5)
+fun baz(n: int): unit = {
+    g += n;
+    if(n>0) bar(n-1);
+}
+bar(10);
+g

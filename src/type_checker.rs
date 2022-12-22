@@ -48,10 +48,10 @@ impl<'a> Exp {
                     _ => unreachable!("Not a variable expression")
                 },
                 PlusAssign | MinusAssign => match (left.as_ref(), right.type_check(envir)?) {
-                    (VarExp(id, _), value) => {
+                    (VarExp(id, id_loc), value) => {
                         let typ = match envir.lookup_var(id) {
                             Ok(typ) => typ,
-                            Err(_) => return Err((format!("Variable {id} does not exist here"), *loc))
+                            Err(_) => return Err((format!("Variable {id} does not exist here"), *id_loc))
                         };
                         match (typ, value) {
                             (Int, Int) => {},
@@ -84,22 +84,17 @@ impl<'a> Exp {
                     Literal::Unit => unreachable!("Unit should not show up as a literal outside of returns"),
                 }
             },
-            BlockExp(exps, funs, _) => {
-                //Type check of funs
+            BlockExp(exps, funs, loc) => {
                 envir.enter_scope();
-                for i in 0..funs.len() {
-                    envir.push_function(funs[i].0.clone(), funs[i].1.clone());
-                }
-                for i in 0..funs.len() {
-                    funs[i].1.type_check(envir)?;
-                }
-                envir.leave_scope();
 
-                //Type check of block
-                envir.enter_scope();
                 for i in 0..funs.len() {
+                    if envir.fun_exist_in_scope(&funs[i].0) {
+                        return Err((format!("Variable '{}' already exist in this scope", funs[i].0), *loc))
+                    }
                     envir.push_function(funs[i].0.clone(), funs[i].1.clone());
                 }
+
+                envir.update_fun_envirs();
 
                 let mut returned: Type = Unit;
                 for exp in exps {
@@ -110,13 +105,16 @@ impl<'a> Exp {
 
                 Ok(returned)
             },
-            VarExp(id, _) => {
+            VarExp(id, loc) => {
                 match envir.lookup_var(&id) {
                     Ok(typ) => Ok(typ),
-                    Err(_) => todo!(),
+                    Err(_) => Err((format!("Variable '{id}' does not exist here"), *loc)),
                 }
             },
-            LetExp(id, exp, _) => {
+            LetExp(id, exp, loc) => {
+                if envir.var_exist_in_scope(&id) {
+                    return Err((format!("Variable '{id}' already exist in this scope"), *loc))
+                }
                 let value = exp.type_check(envir)?;
                 envir.push_variable(id.clone(), value); 
                 Ok(Unit)
@@ -126,8 +124,8 @@ impl<'a> Exp {
                 if cond != Bool {
                     return Err((format!("Condition for if must be boolean, got {cond}"), *loc))
                 }
+                let pos_type = pos.type_check(envir)?;
                 if let Some(neg) = neg {
-                    let pos_type = pos.type_check(envir)?;
                     let neg_type = neg.type_check(envir)?;
                     if pos_type != neg_type {
                         return Err((format!("If and else branch must have same type, got {pos_type} and {neg_type}"), *loc))
@@ -144,24 +142,36 @@ impl<'a> Exp {
                 Ok(Unit)
             }
             FunCallExp(id, args, loc) => {
-                let func = match envir.lookup_fun(id) {
-                    Ok(fun) => fun,
-                    Err(_) => return Err((format!("Function {id} does not exist here"), *loc))
+                let mut closure = match envir.lookup_fun(id) {
+                    Ok(clo) => clo,
+                    Err(_) => return Err((format!("Function '{id}' does not exist here"), *loc))
                 };
 
-                if func.ret_type == Any {
-                    panic!("Recursive functions need type annotations")
+                if closure.fun.ret_type == Any {
+                    return Err((format!("Recursive function '{id}' need type annotations"), *loc))
                 }
-                else if args.len() != func.param_types.len() {
-                    panic!("Incorrect arg count")
+                
+                if args.len() != closure.fun.param_types.len() {
+                    panic!("Incorrect argument count")
                 }
+
                 for i in 0..args.len() {
-                    if args[i].type_check(envir)? != func.param_types[i] {
-                        panic!("Incorrect arg type")
+                    if args[i].type_check(envir)? != closure.fun.param_types[i] {
+                        panic!("Incorrect argument type")
                     }
                 }
 
-                Ok(func.ret_type)
+                if !closure.declared {
+                    let mut renv = envir.get_scope(closure.decl_scope());
+                    closure.fun.type_check(&mut renv)?;
+                }
+
+                Ok(closure.fun.ret_type)
+            },
+            FunDeclExp(id, _) => {
+                envir.declare_fun(&id);
+                let mut clo = envir.lookup_fun(&id).unwrap();
+                clo.fun.type_check(&mut clo.envir)
             },
         }
     }
@@ -169,10 +179,6 @@ impl<'a> Exp {
 
 impl Function {
     pub fn type_check(&mut self, envir: &mut Environment<Type>) -> TypeResult {
-        if self.ret_type == Unit {
-            return Ok(Unit)
-        }
-        
         envir.enter_scope();
 
         for i in 0..self.param_types.len() {
@@ -180,7 +186,7 @@ impl Function {
         }
 
         let res = self.exp.type_check(envir)?;
-
+        
         envir.leave_scope();
 
         if self.ret_type == Any {

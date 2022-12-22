@@ -1,6 +1,6 @@
 use std::{fmt::Display};
 
-use crate::lexer::Location;
+use crate::{lexer::Location, environment::Environment};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Exp {
@@ -17,7 +17,8 @@ pub enum Exp {
     IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>, Location),
 
     BlockExp(Vec<Exp>, Vec<(String, Box<Function>)>, Location),
-    FunCallExp(String, Vec<Exp>, Location)
+    FunCallExp(String, Vec<Exp>, Location),
+    FunDeclExp(String, Location)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -47,6 +48,23 @@ pub enum Type {
 
     //Before type check
     Any
+}
+
+#[derive(Clone, Debug)]
+pub struct Closure<T> {
+    pub declared: bool,
+    pub fun: Box<Function>,
+    pub envir: Environment<T>
+}
+
+impl<T> Closure<T> {
+    pub fn new(fun: Box<Function>, envir: Environment<T>) -> Self {
+        Self { fun, envir, declared: false }
+    }
+
+    pub fn decl_scope(&self) -> u32 {
+        self.envir.scope_depth
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -120,7 +138,8 @@ impl Display for Exp {
                 },
                 Exp::LetExp(id, exp, _) =>  format!("let {id} = {exp};"),
                 Exp::WhileExp(cond, exp, _) => format!("while({cond})  {exp}"),
-                Exp::FunCallExp(_, _, _) => todo!()//format!("while({cond})  {exp}"),
+                Exp::FunCallExp(_, _, _) => format!("FunCall"),
+                Exp::FunDeclExp(_, _) => format!("FunDecl"),
             }
         )
     }
