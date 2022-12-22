@@ -55,8 +55,9 @@ pub fn statement(lexed: &mut LexIter) -> KeepRes {
             //Fun decls are handled in: parse_statements()
             Paren('{') =>        block(lexed),
             Keyword("while") =>  wwhile(lexed),
-            Keyword("for") =>  ffor(lexed),
+            Keyword("for") =>    ffor(lexed),
             Keyword("let") =>    llet(lexed),
+            Keyword("if") =>     iif(lexed),
             _ => expression(lexed)
         }
     }
@@ -188,7 +189,7 @@ fn iif(lexed: &mut LexIter) -> KeepRes {
 
     match keyword(lexed, "else") {
         Ok(_) => {
-            let neg = expression(lexed)?;
+            let neg = statement(lexed)?;
             Ok(Exp::IfElseExp(Box::new(cond), Box::new(pos), Some(Box::new(neg)), loc))
         },
         Err(_) => Ok(Exp::IfElseExp(Box::new(cond), Box::new(pos), None, loc))

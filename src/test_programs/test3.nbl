@@ -1,5 +1,7 @@
-let i = 0;
-for(a, 0.0, 10, 0.5) {
-    i += 1
+let baz = 3;
+if(baz > 5) while(baz > 2) {
+    baz -= 1
+} else {
+    baz = 9
 }
-i
+baz
