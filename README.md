@@ -75,6 +75,7 @@ Block comments with /* */
     is a
     block 
     comment */
+
 ## Let
     let foo = 12
     let bar = false
@@ -97,6 +98,7 @@ Type annotations are needed for function parameters, but it is optional for the 
 Type annotations for return types look like this:
 
     fun foo(a: int): int = a * 2
+
 ## If
 Blocks in the cases are optional, so
 
@@ -112,6 +114,7 @@ They can easily be chained
     if (n < 0) 0
     else if (n > 25) 25
     else n
+
 ## While
 A while loop always returns unit.
 <br>
@@ -121,6 +124,7 @@ Here is an example of a while loop:
     while(i < 10) {
         i++
     }
+
 ## For
 There are several ways to make a for loop.
 <br>
@@ -129,14 +133,16 @@ The simplest is just repeating something N times, where N is an int:
     for(N) {
         //Repeats N times
     }
-<br>
-Often we need a more flexible for loop. The general synta is as follows:
+
+Often we need a more flexible for loop. The general syntax is as follows:
 
     for(ID, FROM, TO, BY) {
         //Body
     }
 
-BY can be left out, and it will default to 1. These are equivalent:
+FROM and TO can be both float and int, but beware of type mixing. <br>
+If FROM is float, TO and BY can be either float or int or mixed, but if FROM is int, TO and BY must be int as well. <br>
+BY can be left out, and it will default to 1. So these are equivalent:
 
     for(i, 0, 10, 1) {
         // Repeated 10 times
@@ -144,26 +150,40 @@ BY can be left out, and it will default to 1. These are equivalent:
     for(i, 0, 10) {
         // Repeated 10 times
     }
+
+With floats:
+
+    for(i, 0.0, 10, 0.5) {
+        // Repeats 20 times
+         // i will take these values:
+         // i = 0.0
+         // i = 0.5
+         // ...
+         // i = 19.5
+    }
+
 <br>
-The loop variable will move from FROM to TO by BY.<br>
-If TO is smaller than FROM, it will just move from highest to lowest.<br><br>
+The loop variable will move from FROM to TO by BY. <br>
+If TO is smaller than FROM, it will just move from highest to lowest. <br><br>
 If TO > FROM then TO will be exclusive. <br>
 If FROM > TO then FROM will be exlcusice. <br>
-If equal the loop will not run at all. <br><br>
+If equal the loop will not run at all. <br>
+This is to make it as painless as possible to iterate arrays <br><br>
 
 Here is a visualization:
 
-    for(i, 10, 0, 1) {
-        // The loop variant will take these values
-        // i = 9
-        // i = 8
-        // ...
-        // i = 0
-    }
     for(i, 0, 10, 1) {
-        // The loop variant will take these values
+        // i will take these values:
         // i = 0
         // i = 1
         // ...
         // i = 9
+    }
+
+    for(i, 10, 0, 1) {
+        // i will take these values:
+        // i = 9
+        // i = 8
+        // ...
+        // i = 0
     }

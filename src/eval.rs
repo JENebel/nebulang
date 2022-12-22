@@ -92,6 +92,7 @@ impl<'a> Exp {
                         let new_value = match (envir.lookup_var(id).unwrap(), value) {
                             (Int(i), Int(y)) => Int(i+y),
                             (Float(f), Float(g)) => Float(f+g),
+                            (Float(f), Int(g)) => Float(f+g as f64),
                             _ => unreachable!("Invalid types"),
                         };
                         envir.mutate(id, new_value);
@@ -104,6 +105,7 @@ impl<'a> Exp {
                         let new_value = match (envir.lookup_var(id).unwrap(), value) {
                             (Int(i), Int(y)) => Int(i-y),
                             (Float(f), Float(g)) => Float(f-g),
+                            (Float(f), Int(g)) => Float(f-g as f64),
                             _ => unreachable!("Invalid types")
                         };
                         envir.mutate(id, new_value);

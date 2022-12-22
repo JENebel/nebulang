@@ -56,7 +56,8 @@ impl<'a> Exp {
                         match (typ, value) {
                             (Int, Int) => {},
                             (Float, Float) => {},
-                            _ => return Err((format!("Cannot add {value} to {id} because it is {typ}"), *loc)),
+                            (Float, Int) => {},
+                            _ => return Err((format!("Cannot add {value} to '{id}' which is {typ}"), *loc)),
                         };
                         Ok(Unit)
                     },
