@@ -1,10 +1,13 @@
 let g = 0;
 bar(10);
 fun bar(n: int): unit = {
-    if(n>0) baz(n);
+    g += 1;
+    if(n>0) baz(n)
 }
 fun baz(n: int): unit = {
     g += n;
-    if(n>0) bar(n-1);
+    if(n>0) bar(n-1)
 }
 g
+
+("a " + '-') = "a -"

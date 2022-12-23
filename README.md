@@ -57,7 +57,7 @@ There are the following keywords:
 There are the following types:
 <br>
 
-    int, float, bool, unit
+    int, float, bool, unit, char, string
 
 There are the following operators:
 <br>
@@ -81,15 +81,32 @@ Block comments with /* */
     let bar = false
 
 ## Functions
-Functions can be declared anywhere in a block, and it will always be available in that scope. That means that the following will work fine:
+The simplest use of a function looks like this:
 
-    foo(7);
-    fun foo(a: int) = a * 2
-    //Returns 14
+    fun add(a: int, b: int) = a + b;
+    add(5, 10)
+    //Returns 15
 
-This also ensures both self-recursion and mutual recursion. A function can acces all variables declared before the declaration of the function AND the calling location. Functions can also be called before it is declared, but in that case the function needs a type annotation, to enable type checks in recursive functions.
+Functions can be declared anywhere, and it will always be available in that scope. <br>
+This also ensures both self-recursion and mutual recursion. 
 
-The example also illustrates that there is no need for a block if the function is a single statement.
+A function can acces all variables declared before the declaration of the function AND the calling location.
+
+As mentioned functions can be called before it is declared, but in that case the function needs a type annotation. This is to enable type checks in recursive functions.
+
+Here is an example of mutually recursive functions that accesses the variable 'g'
+
+    let g = 0;
+    bar(10);
+    fun bar(n: int): unit = {
+        g += 1;
+        if(n>0) baz(n);
+    }
+    fun baz(n: int): unit = {
+        g += n;
+        if(n>0) bar(n-1);
+    }
+    g
 
 <br>
 Type annotations are needed for function parameters, but it is optional for the return type.

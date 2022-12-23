@@ -20,6 +20,8 @@ pub enum LexToken {
     Int(i64),
     Float(f64),
     Bool(bool),
+    Char(char),
+    Str(String),
 
     EndOfInput
 }
@@ -164,6 +166,28 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
                 ';' => program.push(LexToken::SemiColon, loc),
                 ':' => program.push(LexToken::Colon, loc),
                 ',' => program.push(LexToken::Comma, loc),
+                '\'' => {
+                    match get_char(&mut iter) {
+                        Ok(c) => program.push(LexToken::Char(c), loc),
+                        Err(_) => {
+                            let next = iter.peek();
+                            if next.is_some() {
+                                loc.col += 1;
+                                return Err((format!("Expected '"), loc))
+                            } else {
+                                return Err((format!("Expected char"), loc))
+                            }
+                        },
+                    }
+                },
+                '"'=> {
+                    match get_string(&mut iter) {
+                        Ok(s) => program.push(LexToken::Str(s), loc),
+                        Err(_) => {
+                            return Err((format!("Illegal string"), loc))
+                        },
+                    }
+                },
 
                 ' ' | '\t' => {}
                 _ => return Err((format!("Invalid char: '{char}'"), loc))
@@ -177,6 +201,41 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
     program.push(LexToken::EndOfInput, loc);
 
     Ok(program)
+}
+
+fn get_char<T: Iterator<Item = (usize, char)>>(iter: &mut Peekable<T>) -> Result<char, ()> {
+    iter.next();
+    if iter.peek().is_some() {
+        let char = iter.next().unwrap().1;
+        if let Some((_, '\'')) = iter.peek() {
+            return Ok(char)
+        }   
+    }
+    Err(())
+}
+
+fn get_string<T: Iterator<Item = (usize, char)>>(iter: &mut Peekable<T>) -> Result<String, ()> {
+    iter.next();
+    if iter.peek().is_none() { return Err(()) }
+
+    let mut res = String::new();
+    while let Some((_, c)) = iter.next() {
+        if let Some((_, nc)) = iter.peek() {
+            // allow \" quotes to avoid ending string
+            if c == '\\' && *nc == '"' {
+                res = format!("{res}{}", nc);
+                iter.next();
+            } else if *nc == '"' {
+                res = format!("{res}{}", c);
+                return Ok(res)
+            } else  {
+                res = format!("{res}{}", c);
+            }
+        }  else {
+            return Err(())
+        }
+    }
+    Err(())
 }
 
 fn get_id<T: Iterator<Item = (usize, char)>>(iter: &mut Peekable<T>) -> String {

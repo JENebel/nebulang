@@ -24,12 +24,14 @@ pub enum Exp {
     FunDeclExp(String, Location)
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
     //Function(&'a Function),
     Int(i64),
     Float(f64),
     Bool(bool),
+    Char(char),
+    Str(String),
     Unit,
 }
 
@@ -48,6 +50,8 @@ pub enum Type {
     Float,
     Bool,
     Unit,
+    Char,
+    Str,
 
     //Before type check
     Any
@@ -98,7 +102,9 @@ impl Display for Literal {
                 Literal::Int(i) => i.to_string(),
                 Literal::Float(f) => f.to_string(),
                 Literal::Bool(b) => b.to_string(),
-                Literal::Unit => "Unit".to_string(),
+                Literal::Char(c) => format!("'{}'", c),
+                Literal::Str(s) => format!("\"{}\"", s),
+                Literal::Unit => format!("Unit"),
             }
         )
     }
@@ -111,6 +117,8 @@ impl Display for Type {
                 Type::Int => "int",
                 Type::Float => "float",
                 Type::Bool => "bool",
+                Type::Char => "char",
+                Type::Str => "string",
                 Type::Unit => "unit",
                 Type::Any => "any",
             }

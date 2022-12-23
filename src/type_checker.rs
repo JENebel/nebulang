@@ -9,7 +9,21 @@ impl<'a> Exp {
     pub fn type_check(&'a mut self, envir: &'a mut Environment<Type>) -> TypeResult {
         match self {
             BinOpExp(left, op, right, loc) => match op {
-                Plus | Minus | Multiply | Divide | Modulo => match (left.type_check(envir)?, right.type_check(envir)?) {
+                Plus => match (left.type_check(envir)?, right.type_check(envir)?) {
+                    (Int, Int) => Ok(Int),
+                    (Int, Float) => Ok(Float),
+                    (Float, Int) => Ok(Float),
+                    (Float, Float) => Ok(Float),
+
+                    //String concat
+                    (Str, Str) | (Str, Char) | (Char, Str)
+                    | (Str, Int) | (Int, Str) | (Str, Float)
+                    | (Float, Str) | (Str, Bool) | (Bool, Str)
+                        => Ok(Str),
+
+                    (left, right) => Err((format!("Invalid operation '{op}' for '{left}' and '{right}'"), *loc)),
+                },
+                Minus | Multiply | Divide | Modulo => match (left.type_check(envir)?, right.type_check(envir)?) {
                     (Int, Int) => Ok(Int),
                     (Int, Float) => Ok(Float),
                     (Float, Int) => Ok(Float),
@@ -47,22 +61,19 @@ impl<'a> Exp {
                     },
                     _ => unreachable!("Not a variable expression")
                 },
-                PlusAssign | MinusAssign => match (left.as_ref(), right.type_check(envir)?) {
-                    (VarExp(id, id_loc), value) => {
-                        let typ = match envir.lookup_var(id) {
-                            Ok(typ) => typ,
-                            Err(_) => return Err((format!("Variable '{id}' does not exist here"), *id_loc))
+                PlusAssign | MinusAssign => match left.as_ref() {
+                    VarExp(id, loc) => {
+                        let vexp = Box::new(Exp::VarExp(id.clone(), *loc));
+                        let op = match op {
+                            PlusAssign => Plus,
+                            MinusAssign => Minus,
+                            _ => unreachable!()
                         };
-                        match (typ, value) {
-                            (Int, Int) => {},
-                            (Float, Float) => {},
-                            (Float, Int) => {},
-                            _ => return Err((format!("Cannot add '{value}' to '{id}' which is '{typ}'"), *loc)),
-                        };
+                        Exp::BinOpExp(vexp, op, right.clone(), *loc).type_check(envir)?;
                         Ok(Unit)
                     },
-                    _ => unreachable!("Not a variable expression")
-                }
+                    _ => unreachable!("Not a variable id")
+                },
                 Not => unreachable!("Not a binary operator"),
             },
             UnOpExp(op, exp, loc) => match op {
@@ -82,6 +93,8 @@ impl<'a> Exp {
                     Literal::Int(_) => Ok(Int),
                     Literal::Float(_) => Ok(Float),
                     Literal::Bool(_) => Ok(Bool),
+                    Literal::Char(_) => Ok(Char),
+                    Literal::Str(_) => Ok(Str),
                     Literal::Unit => unreachable!("Unit should not show up as a literal outside of returns"),
                 }
             },
@@ -143,18 +156,18 @@ impl<'a> Exp {
                 Ok(Unit)
             }
             FunCallExp(id, args, loc) => {
-                let closure = match envir.lookup_fun(id) {
+                let mut closure = match envir.lookup_fun(id) {
                     Ok(clo) => clo,
                     Err(_) => return Err((format!("Function '{id}' does not exist here"), *loc))
                 };
 
-                /*if !closure.declared {
-                    let mut renv = envir.get_scope(closure.decl_scope());
-                    closure.fun.ret_type = closure.fun.type_check(id, *loc, &mut renv)?;
-                }*/
-
                 if closure.fun.ret_type == Any {
-                    return Err((format!("Function '{id}' needs type annotations as it is called prior to its definition"), *loc))
+                    return Err((format!("Cannot call '{id}' here. '{id}' needs a type annotation as the call is prior to its definition"), *loc))
+                } else if !closure.declared {
+                    //Enables recursive calls to fun before it is declared
+                    let mut renv = envir.get_scope(closure.decl_scope());
+                    renv.declare_fun(id);
+                    closure.fun.ret_type = closure.fun.type_check(id, *loc, &mut renv)?;
                 }
                 
                 if args.len() != closure.fun.param_types.len() {

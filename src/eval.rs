@@ -12,6 +12,17 @@ impl<'a> Exp {
                     (Int(left), Float(right)) => Float(left as f64 + right),
                     (Float(left), Int(right)) => Float(left + right  as f64),
                     (Float(left), Float(right)) => Float(left + right),
+
+                    (Str(left), Str(right)) => Str(format!("{}{}", left, right)),
+                    (Str(left), Char(right)) => Str(format!("{}{}", left, right)),
+                    (Char(left), Str(right)) => Str(format!("{}{}", left, right)),
+                    (Str(left), Int(right)) => Str(format!("{}{}", left, right)),
+                    (Int(left), Str(right)) => Str(format!("{}{}", left, right)),
+                    (Str(left), Float(right)) => Str(format!("{}{}", left, right)),
+                    (Float(left), Str(right)) => Str(format!("{}{}", left, right)),
+                    (Str(left), Bool(right)) => Str(format!("{}{}", left, right)),
+                    (Bool(left), Str(right)) => Str(format!("{}{}", left, right)),
+
                     _ => unreachable!("Runtime type-error should not happen"),
                 },
                 Minus => match (left.evaluate(envir), right.evaluate(envir)) {
@@ -87,27 +98,16 @@ impl<'a> Exp {
                     },
                     _ => unreachable!("Not a variable id")
                 },
-                PlusAssign => match (left.as_ref(), right.evaluate(envir)) {
-                    (VarExp(id, _), value) => {
-                        let new_value = match (envir.lookup_var(id).unwrap(), value) {
-                            (Int(i), Int(y)) => Int(i+y),
-                            (Float(f), Float(g)) => Float(f+g),
-                            (Float(f), Int(g)) => Float(f+g as f64),
-                            _ => unreachable!("Invalid types"),
+                PlusAssign | MinusAssign => match left.as_ref() {
+                    VarExp(id, loc) => {
+                        let other = Box::new(Exp::LiteralExp(right.evaluate(envir), *loc));
+                        let vexp = Box::new(Exp::VarExp(id.clone(), *loc));
+                        let op = match op {
+                            PlusAssign => Plus,
+                            MinusAssign => Minus,
+                            _ => unreachable!()
                         };
-                        envir.mutate(id, new_value);
-                        Unit
-                    },
-                    _ => unreachable!("Not a variable id")
-                },
-                MinusAssign => match (left.as_ref(), right.evaluate(envir)) {
-                    (VarExp(id, _), value) => {
-                        let new_value = match (envir.lookup_var(id).unwrap(), value) {
-                            (Int(i), Int(y)) => Int(i-y),
-                            (Float(f), Float(g)) => Float(f-g),
-                            (Float(f), Int(g)) => Float(f-g as f64),
-                            _ => unreachable!("Invalid types")
-                        };
+                        let new_value = Exp::BinOpExp(vexp, op, other, *loc).evaluate(envir);
                         envir.mutate(id, new_value);
                         Unit
                     },
@@ -127,7 +127,7 @@ impl<'a> Exp {
                 },
                 _ => unreachable!("Not a unary operator")
             },
-            LiteralExp(lit, _) => *lit,
+            LiteralExp(lit, _) => lit.clone(),
             BlockExp(exps, funs, _) => {
                 envir.enter_scope();
                 for fun in funs {
@@ -187,7 +187,7 @@ impl<'a> Exp {
                 let res: Literal = if closure.declared {
                     closure.envir.enter_scope();
                     for i in 0..args.len() {
-                        closure.envir.push_variable(closure.fun.params[i].clone(), lits[i]);
+                        closure.envir.push_variable(closure.fun.params[i].clone(), lits[i].clone());
                     }
                     let res = closure.fun.exp.evaluate(&mut closure.envir);
                     closure.envir.leave_scope();
@@ -195,7 +195,7 @@ impl<'a> Exp {
                 } else {
                     let mut envir = envir.get_scope(closure.decl_scope());
                     for i in 0..args.len() {
-                        envir.push_variable(closure.fun.params[i].clone(), lits[i]);
+                        envir.push_variable(closure.fun.params[i].clone(), lits[i].clone());
                     }
                     closure.fun.exp.evaluate(&mut envir)
                 };

@@ -19,7 +19,7 @@ lazy_static!(//                                                  for
     pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun"]);
 
     ///All legal types
-    pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool", "unit"]);
+    pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool", "char", "string", "unit"]);
 
     pub static ref UNARY_OPERATORS: Vec<ast::Operator> = vec![
         Minus,
@@ -71,7 +71,8 @@ pub fn term(lexed: &mut LexIter) -> KeepRes {
             Paren('{') =>                   block(lexed),
             Keyword("if") =>                iif(lexed),
             Paren('(') =>                   parenthesized_exp(lexed),
-            Int(_) | Float(_) | Bool(_) =>  literal(lexed),
+            Int(_) | Float(_) | Bool(_)
+            | Char(_) | Str(_) =>           literal(lexed),
             Id(_) =>                        var_or_fun_call(lexed),
 
             _ => Err((format!("Expected a term"), curr_loc(lexed)?))
@@ -462,6 +463,8 @@ fn any_type(lexed: &mut LexIter) -> Result<ast::Type, (String, Location)> {
                 "int" => ast::Type::Int,
                 "float" => ast::Type::Float,
                 "bool" => ast::Type::Bool,
+                "char" => ast::Type::Char,
+                "string" => ast::Type::Str,
                 "unit" => ast::Type::Unit,
 
                 _ => return Err((format!("Unknown type"), *loc))
@@ -480,6 +483,8 @@ fn literal(lexed: &mut LexIter) -> KeepRes {
             Some((LexToken::Int(i), _)) => Exp::LiteralExp(Literal::Int(*i), loc),
             Some((LexToken::Float(f), _)) => Exp::LiteralExp(Literal::Float(*f), loc),
             Some((LexToken::Bool(b), _)) => Exp::LiteralExp(Literal::Bool(*b), loc),
+            Some((LexToken::Char(c), _)) => Exp::LiteralExp(Literal::Char(*c), loc),
+            Some((LexToken::Str(s), _)) => Exp::LiteralExp(Literal::Str(s.clone()), loc),
             Some((_, _))=> return Err((format!("Expected literal"), loc)),
             _ => unreachable!()
     };

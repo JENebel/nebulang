@@ -1,18 +1,12 @@
 let primes = 0;
-
-for(i, 0, 1000) {
-    if(is_prime(i)) primes += 1;
-}
-
-fun is_prime(n: int) = {
+for(i, 0, 2500) {
     let p = true;
     let d = 2;
-    if(n <= 1) p = false;
-	while (d<n-1 && p) {
-        if(n%d==0) p=false;
+    if(i <= 1) p = false;
+	while (d<i-1 && p) {
+        if(i%d==0) p=false;
         d+=1
     }
-    if(p) true else false;
+    if(p) primes += 1;
 }
-
 primes
