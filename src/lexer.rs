@@ -40,7 +40,7 @@ pub struct Location {
 
 impl Display for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "line: {}:{}", self.line, self.col)
+        write!(f, "line {}:{}", self.line, self.col)
     }
 }
 
@@ -215,10 +215,12 @@ fn get_char<T: Iterator<Item = (usize, char)>>(iter: &mut Peekable<T>) -> Result
 }
 
 fn get_string<T: Iterator<Item = (usize, char)>>(iter: &mut Peekable<T>) -> Result<String, ()> {
-    iter.next();
-    if iter.peek().is_none() { return Err(()) }
-
     let mut res = String::new();
+    iter.next();
+    if let Some((_, c)) = iter.peek() {
+        if *c == '"' { return Ok(res) }
+    } else { return Err(()) }
+
     while let Some((_, c)) = iter.next() {
         if let Some((_, nc)) = iter.peek() {
             // allow \" quotes to avoid ending string

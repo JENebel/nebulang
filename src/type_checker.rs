@@ -15,11 +15,11 @@ impl<'a> Exp {
                     (Float, Int) => Ok(Float),
                     (Float, Float) => Ok(Float),
 
-                    //String concat
+                    //String
                     (Str, Str) | (Str, Char) | (Char, Str)
                     | (Str, Int) | (Int, Str) | (Str, Float)
                     | (Float, Str) | (Str, Bool) | (Bool, Str)
-                        => Ok(Str),
+                    | (Char, Char) => Ok(Str),
 
                     (left, right) => Err((format!("Invalid operation '{op}' for '{left}' and '{right}'"), *loc)),
                 },
@@ -59,7 +59,7 @@ impl<'a> Exp {
                             Ok(Unit)
                         }
                     },
-                    _ => unreachable!("Not a variable expression")
+                    _ => Err((format!("Left side of assignment must be a variable name"), *loc))
                 },
                 PlusAssign | MinusAssign => match left.as_ref() {
                     VarExp(id, loc) => {

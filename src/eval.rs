@@ -22,6 +22,7 @@ impl<'a> Exp {
                     (Float(left), Str(right)) => Str(format!("{}{}", left, right)),
                     (Str(left), Bool(right)) => Str(format!("{}{}", left, right)),
                     (Bool(left), Str(right)) => Str(format!("{}{}", left, right)),
+                    (Char(left), Char(right)) => Str(format!("{}{}", left, right)),
 
                     _ => unreachable!("Runtime type-error should not happen"),
                 },

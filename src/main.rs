@@ -20,7 +20,7 @@ async fn main() {
     let path = match args.next() {
         Some(path) => path,
         None => {
-            let file_name = "test2";
+            let file_name = "test3";
             format!("C:/Users/Joachim/Documents/VSCode/nebulang/src/test_programs/{file_name}.nbl")
         }
     };
@@ -35,7 +35,7 @@ async fn main() {
     let lexed = match lex(file.as_str()) {
         Ok(lexed) => lexed,
         Err((msg, loc)) => {
-            println!("Lexer Error: {msg}. At: {loc}"); 
+            println!("Lexer Error: {msg}. At {loc}"); 
             return
         }
     };
@@ -44,14 +44,14 @@ async fn main() {
     let mut program = match parse(&mut lexed.iter()) {
         Ok(program) => program,
         Err((msg, loc)) => {
-            println!("Parse Error: {msg}. At: {loc}"); 
+            println!("Parse Error: {msg}. At {loc}"); 
             return
         }
     };
 
     //Type check
     if let Err((msg, loc)) = program.type_check(&mut Environment::new()) {
-        println!("Type Error: {msg}. At: {loc}"); 
+        println!("Type Error: {msg}. At {loc}"); 
         return
     }
 

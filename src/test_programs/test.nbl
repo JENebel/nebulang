@@ -9,5 +9,3 @@ fun baz(n: int): unit = {
     if(n>0) bar(n-1)
 }
 g
-
-("a " + '-') = "a -"
