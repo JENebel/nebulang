@@ -14,33 +14,33 @@ impl<'a> Exp {
                     (Int, Float) => Ok(Float),
                     (Float, Int) => Ok(Float),
                     (Float, Float) => Ok(Float),
-                    (left, right) => Err((format!("Invalid operation {op} for {left} and {right}"), *loc)),
+                    (left, right) => Err((format!("Invalid operation '{op}' for '{left}' and '{right}'"), *loc)),
                 },
                 LessThan | GreaterThan | LessOrEquals | GreaterOrEquals => match (left.type_check(envir)?, right.type_check(envir)?) {
                     (Int, Int) => Ok(Bool),
                     (Int, Float) => Ok(Bool),
                     (Float, Int) => Ok(Bool),
                     (Float, Float) => Ok(Bool),
-                    (left, right) => Err((format!("Invalid operation {op} for {left} and {right}"), *loc)),
+                    (left, right) => Err((format!("Invalid operation '{op}' for '{left}' and '{right}'"), *loc)),
                 },
                 Equals | NotEquals => match (left.type_check(envir)?, right.type_check(envir)?) {
                     (Int, Int) => Ok(Bool),
                     (Float, Float) => Ok(Bool),
                     (Bool, Bool) => Ok(Bool),
-                    (left, right) => Err((format!("Invalid operation {op} for {left} and {right}"), *loc)),
+                    (left, right) => Err((format!("Invalid operation '{op}' for '{left}' and '{right}'"), *loc)),
                 },
                 And | Or => match (left.type_check(envir)?, right.type_check(envir)?) {
                     (Bool, Bool) => Ok(Bool),
-                    (left, right) => Err((format!("Invalid operation {op} for {left} and {right}"), *loc)),
+                    (left, right) => Err((format!("Invalid operation '{op}' for '{left}' and '{right}'"), *loc)),
                 },
                 Assign => match (left.as_ref(), right.type_check(envir)?) {
                     (VarExp(id, loc), value) => {
                         let typ = match envir.lookup_var(id) {
                             Ok(typ) => typ,
-                            Err(_) => return Err((format!("Variable {id} does not exist here"), *loc))
+                            Err(_) => return Err((format!("Variable '{id}' does not exist here"), *loc))
                         };
                         if typ != value {
-                            Err((format!("Cannot assign {value} to {id} which is {typ}"), *loc))
+                            Err((format!("Cannot assign '{value}' to '{id}' which is '{typ}'"), *loc))
                         } else {
                             Ok(Unit)
                         }
@@ -51,13 +51,13 @@ impl<'a> Exp {
                     (VarExp(id, id_loc), value) => {
                         let typ = match envir.lookup_var(id) {
                             Ok(typ) => typ,
-                            Err(_) => return Err((format!("Variable {id} does not exist here"), *id_loc))
+                            Err(_) => return Err((format!("Variable '{id}' does not exist here"), *id_loc))
                         };
                         match (typ, value) {
                             (Int, Int) => {},
                             (Float, Float) => {},
                             (Float, Int) => {},
-                            _ => return Err((format!("Cannot add {value} to '{id}' which is {typ}"), *loc)),
+                            _ => return Err((format!("Cannot add '{value}' to '{id}' which is '{typ}'"), *loc)),
                         };
                         Ok(Unit)
                     },
@@ -69,11 +69,11 @@ impl<'a> Exp {
                 Minus => match exp.type_check(envir)? {
                     Int => Ok(Int),
                     Float => Ok(Float),
-                    typ => Err((format!("Unary operator {op} is not valid for {typ}"), *loc)),
+                    typ => Err((format!("Unary operator '{op}' is not valid for '{typ}'"), *loc)),
                 },
                 Not => match exp.type_check(envir)? {
                     Bool => Ok(Bool),
-                    typ => Err((format!("Unary operator {op} is not valid for {typ}"), *loc)),
+                    typ => Err((format!("Unary operator '{op}' is not valid for '{typ}'"), *loc)),
                 },
                 _ => unreachable!("Not a unary operator")
             },
@@ -123,13 +123,13 @@ impl<'a> Exp {
             IfElseExp(cond, pos, neg, loc) => {
                 let cond = cond.type_check(envir)?;
                 if cond != Bool {
-                    return Err((format!("Condition for if must be boolean, got {cond}"), *loc))
+                    return Err((format!("Condition for if must be boolean, got '{cond}'"), *loc))
                 }
                 let pos_type = pos.type_check(envir)?;
                 if let Some(neg) = neg {
                     let neg_type = neg.type_check(envir)?;
                     if pos_type != neg_type {
-                        return Err((format!("If and else branch must have same type, got {pos_type} and {neg_type}"), *loc))
+                        return Err((format!("If and else branch must have same type, got '{pos_type}' and '{neg_type}'"), *loc))
                     }
                     Ok(pos_type)
                 } else {
@@ -143,13 +143,18 @@ impl<'a> Exp {
                 Ok(Unit)
             }
             FunCallExp(id, args, loc) => {
-                let mut closure = match envir.lookup_fun(id) {
+                let closure = match envir.lookup_fun(id) {
                     Ok(clo) => clo,
                     Err(_) => return Err((format!("Function '{id}' does not exist here"), *loc))
                 };
 
+                /*if !closure.declared {
+                    let mut renv = envir.get_scope(closure.decl_scope());
+                    closure.fun.ret_type = closure.fun.type_check(id, *loc, &mut renv)?;
+                }*/
+
                 if closure.fun.ret_type == Any {
-                    return Err((format!("Recursive function '{id}' need type annotations"), *loc))
+                    return Err((format!("Function '{id}' needs type annotations as it is called prior to its definition"), *loc))
                 }
                 
                 if args.len() != closure.fun.param_types.len() {
@@ -162,17 +167,14 @@ impl<'a> Exp {
                     }
                 }
 
-                if !closure.declared {
-                    let mut renv = envir.get_scope(closure.decl_scope());
-                    closure.fun.type_check(&mut renv)?;
-                }
-
                 Ok(closure.fun.ret_type)
             },
-            FunDeclExp(id, _) => {
+            FunDeclExp(id, loc) => {
                 envir.declare_fun(&id);
                 let mut clo = envir.lookup_fun(&id).unwrap();
-                clo.fun.type_check(&mut clo.envir)
+                let res = clo.fun.type_check(&id, *loc, &mut clo.envir)?;
+                
+                Ok(res)
             },
             ForExp(let_exp, cond, increment, body, _) => {
                 envir.enter_scope();
@@ -188,7 +190,7 @@ impl<'a> Exp {
 }
 
 impl Function {
-    pub fn type_check(&mut self, envir: &mut Environment<Type>) -> TypeResult {
+    pub fn type_check(&mut self, id: &String, loc: Location, envir: &mut Environment<Type>) -> TypeResult {
         envir.enter_scope();
 
         for i in 0..self.param_types.len() {
@@ -200,9 +202,9 @@ impl Function {
         envir.leave_scope();
 
         if self.ret_type == Any {
-            self.ret_type = res
+            envir.update_return_type(id, res)
         } else if self.ret_type != res {
-            return Err((format!("Return type does not match annotation, got {res} and {} was annotated", self.ret_type), self.loc))
+            return Err((format!("Return type does not match annotation, got '{res}' but '{}' was annotated", self.ret_type), loc))
         }
 
         Ok(res)

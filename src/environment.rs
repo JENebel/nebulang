@@ -1,3 +1,4 @@
+use core::panic;
 use std::{rc::Rc, cell::RefCell};
 use super::*;
 
@@ -88,6 +89,18 @@ impl<T: Clone> EnvNode<Closure<T>> {
             }
         } else {
             return;
+        }
+    }
+
+    pub fn update_return_type(&mut self, id: &String, ret_type: Type) {
+        if self.id == *id {
+            self.value.fun.ret_type = ret_type;
+        } else {
+            if let Some(next) = &self.next {
+                next.borrow_mut().update_return_type(id, ret_type)
+            } else {
+                panic!("Will only be called on existing functions")
+            }
         }
     }
 }
@@ -205,6 +218,14 @@ impl<T: Clone> Environment<T> {
 
     pub fn set_fun_head(&mut self, new_head: Option<Rc<RefCell<EnvNode<Closure<T>>>>>) {
         self.fun_head = new_head
+    }
+
+    pub fn update_return_type(&mut self, id: &String, ret_type: Type) {
+        if let Some(head) = &self.fun_head {
+            head.borrow_mut().update_return_type(&id, ret_type)
+        } else {
+            panic!("Should not be empty here!")
+        }
     }
 
     pub fn get_scope(&mut self, scope: u32) -> Self {

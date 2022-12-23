@@ -87,7 +87,7 @@ Functions can be declared anywhere in a block, and it will always be available i
     fun foo(a: int) = a * 2
     //Returns 14
 
-This also ensures both self-recursion and mutual recursion. A function can acces all variables declared before the declaration of the function AND the calling location.
+This also ensures both self-recursion and mutual recursion. A function can acces all variables declared before the declaration of the function AND the calling location. Functions can also be called before it is declared, but in that case the function needs a type annotation, to enable type checks in recursive functions.
 
 The example also illustrates that there is no need for a block if the function is a single statement.
 
