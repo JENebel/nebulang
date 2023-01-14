@@ -1,32 +1,45 @@
-use std::{fmt::Display};
-
-use crate::{lexer::Location, environment::Environment};
+use std::fmt::Display;
+use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Exp {
+    /// (left, operator, right, loc)
     BinOpExp(Box<Exp>, Operator, Box<Exp>, Location),
+
+    /// (operator, value-loc)
     UnOpExp(Operator, Box<Exp>, Location),
+
+    /// (literal, loc)
     LiteralExp(Literal, Location),
+
+    /// (var-id, loc)
     VarExp(String, Location),
+
+    /// (condition, body, loc)
     WhileExp(Box<Exp>, Box<Exp>, Location),
 
-    //let exp, comparison, increment, body
+    /// (var-decl(let), condition, increment, body, loc)
     ForExp(Box<Exp>, Box<Exp>, Box<Exp>, Box<Exp>, Location),
 
-    //Id, exp
+    /// (id, value, loc)
     LetExp(String, Box<Exp>, Location),
 
-    ///Condition, if true, else
+    /// (condition, if-true, if-false, loc)
     IfElseExp(Box<Exp>, Box<Exp>, Option<Box<Exp>>, Location),
 
-    BlockExp(Vec<Exp>, Vec<(String, Box<Function>)>, Location),
+    /// (statements, functions, loc)
+    BlockExp(Vec<Exp>, Vec<(String, usize)>, Location),
+
+    /// (fun-id, arguments, loc)
     FunCallExp(String, Vec<Exp>, Location),
+
+    /// (fun-id, loc)
     FunDeclExp(String, Location)
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
-    //Function(&'a Function),
+    // Function(&'a Function),
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -37,6 +50,7 @@ pub enum Literal {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
+    pub annotated: bool,
     pub loc: Location,
     pub ret_type: Type,
     pub param_types: Vec<Type>,
@@ -53,21 +67,38 @@ pub enum Type {
     Char,
     Str,
 
-    Type(Box<Type>),
-    Function(usize),
+    /// A type value
+    //Type(Box<Type>),
+    /// (params, return-type)
+    //Function(Vec<Type>, Box<Type>),
 
-    //Before type check
-    Any
+    /// Before type check. Should not show up in evaluation!
+    Unknown
 }
 
-#[derive(Clone, Debug)]
-pub struct Closure<T> {
+#[derive(Debug, Clone)]
+pub struct Closure<T: Clone + Display> {
+    /// Whether or not the function has been declared yet
     pub declared: bool,
+
+    /// Function store index
     pub fun: usize,
     pub envir: Environment<T>
 }
 
-impl<T> Closure<T> {
+impl<T: Clone + Display> Closure<T> {
+    pub fn set_envir(&mut self, new_envir: Environment<T>) {
+        self.envir = new_envir;
+    }
+}
+
+impl<T: Clone + Display> Display for Closure<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(Decl: {}, index: {})", self.declared, self.fun)
+    }
+}
+
+impl<T: Clone + Display> Closure<T> {
     pub fn new(fun: usize, envir: Environment<T>) -> Self {
         Self { fun, envir, declared: false }
     }
@@ -123,8 +154,8 @@ impl Display for Type {
                 Type::Char => "char",
                 Type::Str => "string",
                 Type::Unit => "unit",
-                Type::Any => "any",
-                _ => todo!()
+                Type::Unknown => "any",
+                //_ => todo!()
             }
         )
     }

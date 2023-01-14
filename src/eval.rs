@@ -94,7 +94,7 @@ impl<'a> Exp {
                 },
                 Assign => match (left.as_ref(), right.evaluate(envir)) {
                     (VarExp(id, _), value) => {
-                        envir.mutate(id, value);
+                        envir.mutate(id, Value::Var(value));
                         Unit
                     },
                     _ => unreachable!("Not a variable id")
@@ -109,7 +109,7 @@ impl<'a> Exp {
                             _ => unreachable!()
                         };
                         let new_value = Exp::BinOpExp(vexp, op, other, *loc).evaluate(envir);
-                        envir.mutate(id, new_value);
+                        envir.mutate(id, Value::Var(new_value));
                         Unit
                     },
                     _ => unreachable!("Not a variable id")
@@ -131,11 +131,13 @@ impl<'a> Exp {
             LiteralExp(lit, _) => lit.clone(),
             BlockExp(exps, funs, _) => {
                 envir.enter_scope();
+
                 for fun in funs {
-                    envir.push_function(fun.0.clone(), fun.1.clone())
+                    // It is a waste to initialize envir here, maybe fix some time TODO. Same in type checker
+                    envir.push_variable(&fun.0, Value::Fun(Closure::new(fun.1, envir.clone())))
                 }
 
-                envir.update_fun_envirs();
+                envir.init_fun_envirs();
 
                 let mut returned = Unit;
                 for exp in exps {
@@ -145,10 +147,14 @@ impl<'a> Exp {
 
                 returned
             },
-            VarExp(id, _) => envir.lookup_var(&id).unwrap(),
+            VarExp(id, _) => if let Value::Var(var) = envir.lookup_id(id).unwrap() {
+                var
+            } else {
+                panic!("Expected '{id}' was a variable, but found function")
+            },
             LetExp(id, exp, _) => {
                 let value = exp.evaluate(envir);
-                envir.push_variable(id.clone(), value); 
+                envir.push_variable(id, Value::Var(value)); 
                 Unit
             },
             IfElseExp(cond, pos, neg, _) => {
@@ -178,30 +184,39 @@ impl<'a> Exp {
                 Unit
             }
             FunCallExp(id, args, _) => {
+                // Retrieve closure and function
+                let mut closure = match envir.lookup_id(id) {
+                    Ok(Value::Fun(clo)) => clo,
+                    Ok(Value::Var(_)) => panic!(),      //return Err((format!("Cannot call '{id}' as a function. It has type '{typ}'"), *loc)),
+                    Err(_) => panic!()                  //return Err((format!("Function '{id}' does not exist here"), *loc))
+                };
+                
+                let func = envir.get_fun(closure.fun);
+
+                // Evaluate parameters
                 let mut lits = Vec::new();
                 for i in 0..args.len() {
                     lits.push(args[i].evaluate(envir));
                 }
 
-                let mut closure = envir.lookup_fun(id).unwrap();
                 //If it is not declared, it takes the most recent scope from decl scope
-                let res: Literal = if closure.declared {
+                let res: Literal = if !closure.declared {
+                    let mut renv = envir.get_scope(closure.decl_scope());
+                    for i in 0..args.len() {
+                        renv.push_variable(&func.borrow().params[i], Value::Var(lits[i].clone()));
+                    }
+                    func.borrow().exp.evaluate(&mut renv)
+                } else {
                     closure.envir.enter_scope();
                     for i in 0..args.len() {
-                        closure.envir.push_variable(closure.fun.params[i].clone(), lits[i].clone());
+                        closure.envir.push_variable(&func.borrow().params[i].clone(), Value::Var(lits[i].clone()));
                     }
-                    let res = closure.fun.exp.evaluate(&mut closure.envir);
+                    let res = func.borrow().exp.evaluate(&mut closure.envir);
                     closure.envir.leave_scope();
                     res
-                } else {
-                    let mut envir = envir.get_scope(closure.decl_scope());
-                    for i in 0..args.len() {
-                        envir.push_variable(closure.fun.params[i].clone(), lits[i].clone());
-                    }
-                    closure.fun.exp.evaluate(&mut envir)
                 };
 
-                if closure.fun.ret_type == ast::Type::Unit {
+                if func.borrow().ret_type == ast::Type::Unit {
                     Unit
                 } else {
                     res

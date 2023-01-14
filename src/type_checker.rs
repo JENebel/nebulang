@@ -1,12 +1,12 @@
 use super::*;
-use Type::*;
+use ast::Type::*;
 use Operator::*;
 use Exp::*;
 
-type TypeResult = Result<Type, (String, Location)>;
+type TypeResult = Result<ast::Type, (String, Location)>;
 
 impl<'a> Exp {
-    pub fn type_check(&'a mut self, envir: &'a mut Environment<Type>) -> TypeResult {
+    pub fn type_check(&'a self, envir: &'a mut Environment<ast::Type>) -> TypeResult {
         match self {
             BinOpExp(left, op, right, loc) => match op {
                 Plus => match (left.type_check(envir)?, right.type_check(envir)?) {
@@ -49,8 +49,9 @@ impl<'a> Exp {
                 },
                 Assign => match (left.as_ref(), right.type_check(envir)?) {
                     (VarExp(id, loc), value) => {
-                        let typ = match envir.lookup_var(id) {
-                            Ok(typ) => typ,
+                        let typ = match envir.lookup_id(id) {
+                            Ok(Value::Var(typ)) => typ,
+                            Ok(Value::Fun(_)) => return Err((format!("'{id}' was a function. TODO"), *loc)),
                             Err(_) => return Err((format!("Variable '{id}' does not exist here"), *loc))
                         };
                         if typ != value {
@@ -102,15 +103,19 @@ impl<'a> Exp {
                 envir.enter_scope();
 
                 for i in 0..funs.len() {
-                    if envir.fun_exist_in_scope(&funs[i].0) {
-                        return Err((format!("Variable '{}' already exist in this scope", funs[i].0), *loc))
+                    let id = &funs[i].0;
+
+                    if envir.id_exist_in_scope(id) {
+                        return Err((format!("Function '{}' already exist in this scope", funs[i].0), *loc))
                     }
-                    envir.push_function(funs[i].0.clone(), funs[i].1.clone());
+
+                    // It is a waste to initialize envir here, maybe fix some time TODO. Same in eval
+                    envir.push_variable(id, Value::Fun(Closure::new(funs[i].1, envir.clone())));
                 }
 
-                envir.update_fun_envirs();
+                envir.init_fun_envirs();
 
-                let mut returned: Type = Unit;
+                let mut returned: ast::Type = Unit;
                 for exp in exps {
                     returned = exp.type_check(envir)?;
                 }
@@ -120,17 +125,18 @@ impl<'a> Exp {
                 Ok(returned)
             },
             VarExp(id, loc) => {
-                match envir.lookup_var(&id) {
-                    Ok(typ) => Ok(typ),
+                match envir.lookup_id(&id) {
+                    Ok(Value::Var(typ)) => Ok(typ),
+                    Ok(Value::Fun(_)) => Err((format!("'{id}' is a function and can not be used like a variable"), *loc)),
                     Err(_) => Err((format!("Variable '{id}' does not exist here"), *loc)),
                 }
             },
             LetExp(id, exp, loc) => {
-                if envir.var_exist_in_scope(&id) {
+                if envir.id_exist_in_scope(&id) {
                     return Err((format!("Variable '{id}' already exist in this scope"), *loc))
                 }
                 let value = exp.type_check(envir)?;
-                envir.push_variable(id.clone(), value); 
+                envir.push_variable(id, Value::Var(value)); 
                 Ok(Unit)
             },
             IfElseExp(cond, pos, neg, loc) => {
@@ -156,38 +162,56 @@ impl<'a> Exp {
                 Ok(Unit)
             }
             FunCallExp(id, args, loc) => {
-                let mut closure = match envir.lookup_fun(id) {
-                    Ok(clo) => clo,
+                let closure = match envir.lookup_id(id) {
+                    Ok(Value::Fun(clo)) => clo,
+                    Ok(Value::Var(typ)) => return Err((format!("Cannot call '{id}' as a function. It has type '{typ}'"), *loc)),
                     Err(_) => return Err((format!("Function '{id}' does not exist here"), *loc))
                 };
 
-                if closure.fun.ret_type == Any {
+                let rc = envir.get_fun(closure.fun);
+                let func = rc.borrow().clone();
+
+                if func.ret_type == Unknown {
                     return Err((format!("Cannot call '{id}' here. '{id}' needs a type annotation as the call is prior to its definition"), *loc))
-                } else if !closure.declared {
-                    //Enables recursive calls to fun before it is declared
-                    let mut renv = envir.get_scope(closure.decl_scope());
-                    renv.declare_fun(id);
-                    closure.fun.ret_type = closure.fun.type_check(id, *loc, &mut renv)?;
                 }
                 
-                if args.len() != closure.fun.param_types.len() {
-                    panic!("Incorrect argument count")
+                if args.len() != func.param_types.len() {
+                    return Err((format!("Incorrect argument count. '{id}' takes {} arguments, but {} were given", func.param_types.len(), args.len()), *loc))
                 }
 
                 for i in 0..args.len() {
-                    if args[i].type_check(envir)? != closure.fun.param_types[i] {
-                        panic!("Incorrect argument type")
+                    let checked_type = args[i].type_check(envir)?;
+                    if checked_type != func.param_types[i] {
+                        return Err((format!("Incorrect argument type. Expected type '{}' for argument {}, but got {}", func.param_types[i], func.params[i], checked_type), *loc))
                     }
                 }
 
-                Ok(closure.fun.ret_type)
+                if !closure.declared {
+                    // Enables recursive calls to fun before it is declared
+                    let mut renv = envir.get_scope(closure.decl_scope());
+                    renv.declare_fun(id);
+                    func.type_check(id, *loc, &mut renv)?;
+                }
+
+                Ok(func.ret_type)
             },
             FunDeclExp(id, loc) => {
-                envir.declare_fun(&id);
-                let mut clo = envir.lookup_fun(&id).unwrap();
-                let res = clo.fun.type_check(&id, *loc, &mut clo.envir)?;
+                envir.declare_fun(id);
+
+                // Type check. This will always be a function
+                if let Value::Fun(clo) = envir.lookup_id(id).unwrap() {
+                    let func = envir.get_fun(clo.fun);
+
+                    let res = func.borrow().type_check(&id, *loc, envir)?;
+
+                    if !func.borrow().annotated {
+                        func.borrow_mut().ret_type = res.clone();
+                    }
                 
-                Ok(res)
+                    return Ok(res)
+                }
+
+                unreachable!()
             },
             ForExp(let_exp, cond, increment, body, _) => {
                 envir.enter_scope();
@@ -202,22 +226,20 @@ impl<'a> Exp {
     }
 }
 
-impl Function {
-    pub fn type_check(&mut self, id: &String, loc: Location, envir: &mut Environment<Type>) -> TypeResult {
+impl<'a> ast::Function {
+    pub fn type_check(&self, id: &str, loc: Location, envir: &mut Environment<ast::Type>) -> TypeResult {
         envir.enter_scope();
 
         for i in 0..self.param_types.len() {
-            envir.push_variable(self.params[i].clone(), self.param_types[i].clone());
+            envir.push_variable(&self.params[i].clone(), Value::Var(self.param_types[i].clone()));
         }
 
         let res = self.exp.type_check(envir)?;
         
         envir.leave_scope();
 
-        if self.ret_type == Any {
-            envir.update_return_type(id, res)
-        } else if self.ret_type != res {
-            return Err((format!("Return type does not match annotation, got '{res}' but '{}' was annotated", self.ret_type), loc))
+        if self.annotated && self.ret_type != res {
+            return Err((format!("Return type for {id} does not match annotation, got '{res}' but '{}' was annotated", self.ret_type), loc))
         }
 
         Ok(res)

@@ -1,0 +1,5 @@
+fun bar() = 54;
+
+fun foo(g: int) = bar() + g;
+
+foo(32)
