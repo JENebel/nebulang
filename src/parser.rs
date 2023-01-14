@@ -1,8 +1,10 @@
 use std::{iter::Peekable, slice::Iter, cell::RefCell, rc::Rc};
-
 use lazy_static::lazy_static;
 
-use super::*;
+use crate::ast::*;
+use crate::lexer::*;
+use crate::environment::*;
+use crate::ast as ast;
 
 use LexToken::*;
 use ast::Operator::*;

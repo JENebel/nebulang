@@ -1,5 +1,7 @@
 use std::fmt::Display;
-use super::*;
+
+use crate::lexer::*;
+use crate::environment::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Exp {

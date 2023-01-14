@@ -1,4 +1,9 @@
-use super::*;
+use std::time::Instant;
+
+use crate::ast::*;
+use crate::lexer::*;
+use crate::parser::*;
+use crate::environment::*;
 
 #[allow(dead_code)]
 pub struct RunStats {

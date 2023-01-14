@@ -4,6 +4,8 @@ Small interpreted language with static types and lexical scoping implemented in 
 
 - [Nebulang](#nebulang)
   - [Examples](#examples)
+  - [Running a program](#running-a-program)
+    - [Arguments](#arguments)
   - [Syntax reference](#syntax-reference)
     - [Basics](#basics)
     - [Keywords](#keywords)
@@ -50,6 +52,20 @@ Counts number of primes up to 1000:
         if(p) primes += 1;
     }
     primes
+
+## Running a program
+
+To run one of the example programs use
+
+    cargo run examples/primes
+
+Both relative and absolute paths work.
+
+If the **.nbl** extension is used, there is no need for the extension when running.
+
+### Arguments
+
+    --info      // Shows extra info about the execution
 
 ## Syntax reference
 

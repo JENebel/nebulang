@@ -1,4 +1,6 @@
-use super::*;
+use crate::ast::*;
+use crate::environment::*;
+
 use Literal::*;
 use Operator::*;
 use Exp::*;
@@ -216,7 +218,7 @@ impl<'a> Exp {
                     res
                 };
 
-                if func.borrow().ret_type == ast::Type::Unit {
+                if func.borrow().ret_type == Type::Unit {
                     Unit
                 } else {
                     res

@@ -1,12 +1,15 @@
-use super::*;
-use ast::Type::*;
+use crate::ast::*;
+use crate::lexer::*;
+use crate::environment::*;
+
+use Type::*;
 use Operator::*;
 use Exp::*;
 
-type TypeResult = Result<ast::Type, (String, Location)>;
+type TypeResult = Result<Type, (String, Location)>;
 
 impl<'a> Exp {
-    pub fn type_check(&'a self, envir: &'a mut Environment<ast::Type>) -> TypeResult {
+    pub fn type_check(&'a self, envir: &'a mut Environment<Type>) -> TypeResult {
         match self {
             BinOpExp(left, op, right, loc) => match op {
                 Plus => match (left.type_check(envir)?, right.type_check(envir)?) {
@@ -115,7 +118,7 @@ impl<'a> Exp {
 
                 envir.init_fun_envirs();
 
-                let mut returned: ast::Type = Unit;
+                let mut returned: Type = Unit;
                 for exp in exps {
                     returned = exp.type_check(envir)?;
                 }
@@ -226,8 +229,8 @@ impl<'a> Exp {
     }
 }
 
-impl<'a> ast::Function {
-    pub fn type_check(&self, id: &str, loc: Location, envir: &mut Environment<ast::Type>) -> TypeResult {
+impl<'a> Function {
+    pub fn type_check(&self, id: &str, loc: Location, envir: &mut Environment<Type>) -> TypeResult {
         envir.enter_scope();
 
         for i in 0..self.param_types.len() {
