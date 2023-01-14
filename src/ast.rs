@@ -44,7 +44,7 @@ pub struct Function {
     pub exp: Box<Exp>
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Type {
     Int,
     Float,
@@ -53,6 +53,9 @@ pub enum Type {
     Char,
     Str,
 
+    Type(Box<Type>),
+    Function(usize),
+
     //Before type check
     Any
 }
@@ -60,12 +63,12 @@ pub enum Type {
 #[derive(Clone, Debug)]
 pub struct Closure<T> {
     pub declared: bool,
-    pub fun: Box<Function>,
+    pub fun: usize,
     pub envir: Environment<T>
 }
 
 impl<T> Closure<T> {
-    pub fn new(fun: Box<Function>, envir: Environment<T>) -> Self {
+    pub fn new(fun: usize, envir: Environment<T>) -> Self {
         Self { fun, envir, declared: false }
     }
 
@@ -121,6 +124,7 @@ impl Display for Type {
                 Type::Str => "string",
                 Type::Unit => "unit",
                 Type::Any => "any",
+                _ => todo!()
             }
         )
     }

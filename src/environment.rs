@@ -3,11 +3,24 @@ use std::{rc::Rc, cell::RefCell};
 use super::*;
 
 #[derive(Debug)]
+pub enum Variable<T> {
+    Val(T),
+    Fun(usize), //contains fun store index
+}
+
+#[derive(Debug)]
 pub struct EnvNode<T> {
     scope_depth: u32,
     id: String,
     value: T,
     next: Option<Rc<RefCell<EnvNode<T>>>>,
+}
+
+#[derive(Debug)]
+pub struct Environment<T> {
+    pub scope_depth: u32,
+    var_head: Option<Rc<RefCell<EnvNode<Variable<T>>>>>,
+    fun_store: Rc<RefCell<Vec<Box<Function>>>>
 }
 
 impl<T: Clone> EnvNode<T> {
@@ -66,7 +79,7 @@ impl<T: Clone> EnvNode<T> {
     }
 }
 
-impl<T: Clone> EnvNode<Closure<T>> {
+impl<'a, T: Clone> EnvNode<Closure<T>> {
     pub fn declare_fun(&mut self, id: &String, new_head: Option<Rc<RefCell<EnvNode<T>>>>) {
         if self.id == *id {
             self.value.envir.set_var_head(new_head);
@@ -103,13 +116,6 @@ impl<T: Clone> EnvNode<Closure<T>> {
             }
         }
     }
-}
-
-#[derive(Debug)]
-pub struct Environment<T> {
-    pub scope_depth: u32,
-    var_head: Option<Rc<RefCell<EnvNode<T>>>>,
-    fun_head: Option<Rc<RefCell<EnvNode<Closure<T>>>>>,
 }
 
 impl<T: Clone> Environment<T> {
