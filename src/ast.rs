@@ -20,7 +20,7 @@ pub enum Exp {
     /// (condition, body, loc)
     WhileExp(Box<Exp>, Box<Exp>, Location),
 
-    /// (var-decl(let), condition, increment, body, loc)
+    /// (let_exp, cond_exp, inc_exp, body, loc)
     ForExp(Box<Exp>, Box<Exp>, Box<Exp>, Box<Exp>, Location),
 
     /// (id, value, loc)
@@ -37,6 +37,44 @@ pub enum Exp {
 
     /// (fun-id, loc)
     FunDeclExp(String, Location)
+}
+
+pub struct Error {
+    pub error_type: ErrorType,
+    pub error_msg: String,
+    pub location: Location,
+}
+
+impl Error {
+    pub fn new(error_type: ErrorType, error_msg: String, location: Location) -> Self {
+        Self { error_type, error_msg, location }
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {} At {}", self.error_type, self.error_msg, self.location)
+    }
+}
+
+#[derive(PartialEq)]
+pub enum ErrorType {
+    SyntaxError,
+    TypeError,
+
+    RuntimeError,
+}
+
+impl Display for ErrorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            match self {
+                ErrorType::SyntaxError => "Syntax Error",
+                ErrorType::TypeError => "Type Error",
+                ErrorType::RuntimeError => "Runtime Error",
+            }
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

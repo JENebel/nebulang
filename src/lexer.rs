@@ -1,6 +1,6 @@
 use std::{iter::Peekable, fmt::Display};
 use lazy_static::*;
-use crate::parser::*;
+use crate::{parser::*, ast::{Error, ErrorType::*}};
 
 ///Lexer token
 #[derive(Debug)]
@@ -75,7 +75,7 @@ impl Display for LexedProgram {
     }
 }
 
-pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
+pub fn lex(input: &str) -> Result<LexedProgram, Error> {
     let mut program = LexedProgram::new();
 
     let mut iter = input.chars().into_iter().enumerate().peekable();
@@ -173,9 +173,9 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
                             let next = iter.peek();
                             if next.is_some() {
                                 loc.col += 1;
-                                return Err((format!("Expected '"), loc))
+                                return Err(Error::new(SyntaxError, format!("Expected something"), loc))
                             } else {
-                                return Err((format!("Expected char"), loc))
+                                return Err(Error::new(SyntaxError, format!("Expected char"), loc))
                             }
                         },
                     }
@@ -184,13 +184,13 @@ pub fn lex(input: &str) -> Result<LexedProgram, (String, Location)> {
                     match get_string(&mut iter) {
                         Ok(s) => program.push(LexToken::Str(s), loc),
                         Err(_) => {
-                            return Err((format!("Illegal string"), loc))
+                            return Err(Error::new(SyntaxError, format!("Illegal string"), loc))
                         },
                     }
                 },
 
                 ' ' | '\t' => {}
-                _ => return Err((format!("Invalid char: '{char}'"), loc))
+                _ => return Err(Error::new(SyntaxError, format!("Invalid char: '{char}'"), loc))
             }
         }
 

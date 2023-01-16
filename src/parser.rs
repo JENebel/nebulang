@@ -10,8 +10,8 @@ use LexToken::*;
 use ast::Operator::*;
 
 type LexIter<'a> = Peekable<Iter<'a, (LexToken, Location)>>;
-type KeepRes = Result<Exp, (String, Location)>;
-type DiscardRes = Result<(), (String, Location)>;
+type KeepRes = Result<Exp, Error>;
+type DiscardRes = Result<(), Error>;
 
 lazy_static!(//                                                  for
     ///All legal operators                                   [ comments ]
@@ -55,7 +55,7 @@ lazy_static!(//                                                  for
 /// 
 /// Arguments
 /// * `lexed` - The lexed program
-pub fn parse(lexed: &mut LexIter) -> Result<(Exp, FunStore), (String, Location)> {
+pub fn parse(lexed: &mut LexIter) -> Result<(Exp, FunStore), Error> {
     let mut fun_store = Rc::new(RefCell::new(Vec::new()));
     let res = parse_statements(lexed, &mut fun_store)?;
     Ok((res, fun_store))
@@ -89,7 +89,7 @@ fn term(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
             | Char(_) | Str(_) =>           literal(lexed),
             Id(_) =>                        var_or_fun_call(lexed, fun_store),
 
-            _ => Err((format!("Expected a term"), curr_loc(lexed)?))
+            _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected a term"), curr_loc(lexed)?))
         };
     }
 
@@ -136,7 +136,7 @@ fn expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
         } else {
             if let Some(Term::ExpTerm(_)) = terms.last() {
                 if terms.len() > 0 {
-                    return Err((format!("Expected operator or ';'"), curr_loc(lexed)?))
+                    return Err(Error::new(ErrorType::SyntaxError, format!("Expected operator or ';'"), curr_loc(lexed)?))
                 }
             }
     
@@ -145,7 +145,7 @@ fn expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     }
 
     if terms.len() == 0 {
-        return Err((format!("Expected something"), curr_loc(lexed)?));
+        return Err(Error::new(ErrorType::SyntaxError, format!("Expected something"), curr_loc(lexed)?))
     }
 
     //Establish precedence
@@ -156,7 +156,7 @@ fn expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 fn precedence(terms: &[Term]) -> KeepRes {
     //There should not be an operator last
     if let Some(Term::OpTerm(op, loc)) = terms.last() {
-        return Err((format!("Unexpected operator '{op}'"), *loc))
+        return Err(Error::new(ErrorType::SyntaxError, format!("Unexpected operator '{op}'"), *loc))
     }
 
     if terms.len() == 1 {
@@ -182,12 +182,12 @@ fn precedence(terms: &[Term]) -> KeepRes {
     //Unary operators
     if let Some(Term::OpTerm(op, loc)) = terms.first() {
         if !UNARY_OPERATORS.contains(op) {
-            return Err((format!("Not a unary operator '{op}'"), *loc))
+            return Err(Error::new(ErrorType::SyntaxError, format!("Not a unary operator '{op}'"), *loc))
         }
         return Ok(Exp::UnOpExp(*op, Box::new(precedence(&terms[1..])?), *loc));
     } else if let Some(Term::ExpTerm(_)) = terms.first() {
         if let Term::OpTerm(op, loc) = terms[1] {
-            return Err((format!("Not a binary operator '{op}'"), loc))
+            return Err(Error::new(ErrorType::SyntaxError, format!("Not a binary operator '{op}'"), loc))
         }
     }
 
@@ -241,85 +241,41 @@ fn ffor(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     keyword(lexed, "for")?;
     parenthesis(lexed, '(')?;
     if let Ok(id) = id(lexed) {
-        //Normal for loop
-        comma(lexed)?;
+        // Normal for loop
+        operator(lexed, Assign)?;
 
-        let from_f: f64;
-        let from = literal(lexed)?;
-        let from_loc;
-        match from {
-            Exp::LiteralExp(Literal::Int(i), loc) => { //Ok
-                from_f = i as f64;
-                from_loc = loc;
-            },
-            Exp::LiteralExp(Literal::Float(i), loc) => { //Ok
-                from_f = i;
-                from_loc = loc
-            },
-            Exp::LiteralExp(lit, loc) => return Err((format!("From in for must be int or float, got '{lit}'"), loc)),
-            _ => unreachable!("Unreachable because it it parsed to a literal")
-        };
-        let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(from), from_loc));
+        let let_loc = curr_loc(lexed)?;
+        let from_exp = expression(lexed, fun_store)?;
+        let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(from_exp), let_loc));
 
-        comma(lexed)?;
+        semi_colon(lexed)?;
 
-        let to_f: f64;
-        let to = literal(lexed)?;
-        let to_loc;
-        match to {
-            Exp::LiteralExp(Literal::Int(i), loc) => { //Ok
-                to_f = i as f64;
-                to_loc = loc;
-            },
-            Exp::LiteralExp(Literal::Float(i), loc) => { //Ok
-                to_f = i;
-                to_loc = loc
-            },
-            Exp::LiteralExp(lit, loc) => return Err((format!("To in for must be int or float, got '{lit}'"), loc)),
-            _ => unreachable!("Unreachable because it it parsed to a literal")
-        };
+        let cond_exp = Box::new(expression(lexed, fun_store)?);
+        
+        semi_colon(lexed)?;
 
-        let op;
-        let inc;
-        if to_f > from_f {
-            op = ast::Operator::LessThan;
-            inc = 1;
-        } else {
-            op = ast::Operator::GreaterThan;
-            inc = -1;
-        }
-        let cond = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id.clone(), from_loc)), op, Box::new(to), to_loc));
-
-        let inc_exp = if let Ok(_) = comma(lexed) {
-            let mut exp = expression(lexed, fun_store)?;
-            if inc < 0 {
-                exp = Exp::UnOpExp(ast::Operator::Minus, Box::new(exp), loc)
-            }
-            Box::new(exp)
-        } else {
-            Box::new(Exp::LiteralExp(Literal::Int(inc), to_loc))
-        };
-
-        let increment = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id, to_loc)), ast::Operator::PlusAssign, inc_exp, to_loc));
-
+        let inc_exp = Box::new(expression(lexed, fun_store)?);
 
         parenthesis(lexed, ')')?;
+
         let body = Box::new(statement(lexed, fun_store)?);
 
         Ok(Exp::ForExp(
             let_exp,
-            cond,
-            increment,
+            cond_exp,
+            inc_exp,
             body,
             loc
         ))
     } else {
-        //Simple for loop
+        // Simple for loop
         let id = format!(".for");
         let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(Exp::LiteralExp(Literal::Int(0), loc)), loc));
         let cond = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id.clone(), loc)), ast::Operator::LessThan, Box::new(expression(lexed, fun_store)?), loc));
         let increment = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id, loc)), ast::Operator::PlusAssign, Box::new(Exp::LiteralExp(Literal::Int(1), loc)), loc));
+        
         parenthesis(lexed, ')')?;
+
         let body = Box::new(statement(lexed, fun_store)?);
 
         Ok(Exp::ForExp(
@@ -349,7 +305,7 @@ fn parenthesized_exp(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 }
 
 /// Parses any operator
-fn any_operator(lexed: &mut LexIter) -> Result<ast::Operator, (String, Location)> {
+fn any_operator(lexed: &mut LexIter) -> Result<ast::Operator, Error> {
     match lexed.peek() {
         Some((LexToken::Operator(op), loc)) => {
             let res = match *op {
@@ -370,24 +326,24 @@ fn any_operator(lexed: &mut LexIter) -> Result<ast::Operator, (String, Location)
                 "&&" => ast::Operator::And,
                 "||" => ast::Operator::Or,
                 "!=" => ast::Operator::NotEquals,
-                _ => return Err((format!("Unknown operator: '{op}"), *loc))
+                _ => return Err(Error::new(ErrorType::SyntaxError, format!("Unknown operator: '{op}'"), *loc))
             };
             lexed.next();
             Ok(res)
         },
-        _ => Err((format!("Expected an operator"), curr_loc(lexed)?))
+        _ => return Err(Error::new(ErrorType::SyntaxError, format!("Expected an operator"), curr_loc(lexed)?))
     }
 }
 
 /// Parses a specific operator
-fn operator(lexed: &mut LexIter, operator: ast::Operator) -> Result<ast::Operator, (String, Location)> {
+fn operator(lexed: &mut LexIter, operator: ast::Operator) -> Result<ast::Operator, Error> {
     match any_operator(lexed) {
         Ok(actual) => if actual == operator {
             Ok(actual)
         } else {
-            Err((format!("Expected '{operator}', got {actual}"), curr_loc(lexed)?))
+            Err(Error::new(ErrorType::SyntaxError, format!("Expected '{operator}', got '{actual}'"), curr_loc(lexed)?))
         },
-        Err(_) => Err((format!("Expected '{operator}'"), curr_loc(lexed)?)),
+        Err(_) => Err(Error::new(ErrorType::SyntaxError, format!("Expected '{operator}'"), curr_loc(lexed)?))
     }
 }
 
@@ -398,20 +354,20 @@ fn keyword(lexed: &mut LexIter, keyword: &str) -> DiscardRes {
             lexed.next();
             Ok(())
         } else {
-            Err((format!(""), curr_loc(lexed)?))
+            Err(Error::new(ErrorType::SyntaxError, format!("Expected keyword '{keyword}', but go keyword '{kwd}'"), curr_loc(lexed)?))
         },
-        _ => Err((format!("Expected {keyword}"), curr_loc(lexed)?))
+        _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected keyword '{keyword}'"), curr_loc(lexed)?))
     }
 }
 
 /// Parses an identifier
-fn id(lexed: &mut LexIter) -> Result<String, (String, Location)> {
+fn id(lexed: &mut LexIter) -> Result<String, Error> {
     match lexed.peek() {
         Some((LexToken::Id(id), _)) => {
             lexed.next();
             Ok(id.clone())
         },
-        _ => Err((format!("Expected an identifier"), curr_loc(lexed)?)),
+        _ => return Err(Error::new(ErrorType::SyntaxError, format!("Expected an identifier"), curr_loc(lexed)?)),
     }
 }
 
@@ -441,10 +397,10 @@ fn var_or_fun_call(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     }
 }
 
-/// Parses a function declaration
+/// Parses a function declaration.
 /// 
 /// On succes, returns a tuple with the (FunDeclExp, fun id, store index)
-fn fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp, String, usize), (String, Location)> {
+fn fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp, String, usize), Error> {
     let loc = curr_loc(lexed)?;
     keyword(lexed, "fun")?;
     let name = id(lexed)?;
@@ -488,7 +444,7 @@ fn fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp, Strin
 }
 
 /// Parses next token and converts to an ast-type
-fn any_type(lexed: &mut LexIter) -> Result<ast::Type, (String, Location)> {
+fn any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
     match lexed.peek() {
         Some((Type(typ), loc)) => {
             let typ = match *typ {
@@ -499,12 +455,12 @@ fn any_type(lexed: &mut LexIter) -> Result<ast::Type, (String, Location)> {
                 "string" => ast::Type::Str,
                 "unit" => ast::Type::Unit,
 
-                _ => return Err((format!("Unknown type"), *loc))
+                _ => return Err(Error::new(ErrorType::SyntaxError, format!("Unknown type"), *loc))
             };
             lexed.next();
             return Ok(typ);
         } 
-        _ => Err((format!("Expected a type"), curr_loc(lexed)?))
+        _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected a type"), curr_loc(lexed)?))
     }
 }
 
@@ -518,7 +474,7 @@ fn literal(lexed: &mut LexIter) -> KeepRes {
             Some((LexToken::Bool(b), _)) => Exp::LiteralExp(Literal::Bool(*b), loc),
             Some((LexToken::Char(c), _)) => Exp::LiteralExp(Literal::Char(*c), loc),
             Some((LexToken::Str(s), _)) => Exp::LiteralExp(Literal::Str(s.clone()), loc),
-            Some((_, _))=> return Err((format!("Expected literal"), loc)),
+            Some((_, _))=> return Err(Error::new(ErrorType::SyntaxError, format!("Expected literal"), curr_loc(lexed)?)),
             _ => unreachable!()
     };
     lexed.next();
@@ -532,7 +488,7 @@ fn semi_colon(lexed: &mut LexIter) -> DiscardRes {
             lexed.next();
             Ok(())
         },
-        _ => Err((format!("Expected ';'"), curr_loc(lexed)?)),
+        _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected ';'"), curr_loc(lexed)?))
     }
 }
 
@@ -543,7 +499,7 @@ fn colon(lexed: &mut LexIter) -> DiscardRes {
             lexed.next();
             Ok(())
         },
-        _ => Err((format!("Expected ':'"), curr_loc(lexed)?)),
+        _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected ':'"), curr_loc(lexed)?))
     }
 }
 
@@ -554,7 +510,7 @@ fn comma(lexed: &mut LexIter) -> DiscardRes {
             lexed.next();
             Ok(())
         },
-        _ => Err((format!("Expected ','"), curr_loc(lexed)?)),
+        _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected ','"), curr_loc(lexed)?))
     }
 }
 
@@ -563,12 +519,12 @@ fn parenthesis(lexed: &mut LexIter, paren: char) -> DiscardRes {
     match lexed.peek() {
         Some((Paren(par), loc)) => {
             if *par != paren {
-                return Err((format!("Expected '{paren}'"), *loc))
+                return Err(Error::new(ErrorType::SyntaxError, format!("Expected '{paren}'"), *loc))
             }
             lexed.next();
             Ok(())
         },
-        _ => Err((format!("Expected '{paren}'"), curr_loc(lexed)?))
+        _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected '{paren}'"), curr_loc(lexed)?))
     }
 }
 
@@ -578,9 +534,9 @@ fn terminator(lexed: &mut LexIter) -> bool {
 }
 
 /// Gets the current location in the LexIter
-fn curr_loc(lexed: &mut LexIter) -> Result<Location, (String, Location)> {
+fn curr_loc(lexed: &mut LexIter) -> Result<Location, Error> {
     match lexed.peek() {
-        Some((EndOfInput, loc)) => Err((format!("Unexpected end of input"), *loc)),
+        Some((EndOfInput, loc)) => Err(Error::new(ErrorType::SyntaxError, format!("Unexpected end of input"), *loc)),
         Some((_, loc)) => Ok(*loc),
         None => panic!("Could not get location"),
     }

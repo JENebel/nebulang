@@ -11,7 +11,7 @@ pub struct RunStats {
     run_millis: u128,
 }
 
-pub fn run_program(input: String, args: Vec<String>) -> Result<(Literal, RunStats), String> {
+pub fn run_program(input: String, args: Vec<String>) -> Result<(Literal, RunStats), Error> {
     let mut info: bool = false;
 
     args.iter().for_each(|arg| {
@@ -26,8 +26,8 @@ pub fn run_program(input: String, args: Vec<String>) -> Result<(Literal, RunStat
     //Lex
     let lexed = match lex(&input) {
         Ok(lexed) => lexed,
-        Err((msg, loc)) => {
-            return Err(format!("Lexer Error: {msg}. At {loc}"))
+        Err(err) => {
+            return Err(err)
         }
     };
 
@@ -38,13 +38,13 @@ pub fn run_program(input: String, args: Vec<String>) -> Result<(Literal, RunStat
             program = prog;
             fun_store = funs;
         },
-        Err((msg, loc)) => {
-            return Err(format!("Parse Error: {msg}. At {loc}"))
+        Err(err) => {
+            return Err(err)
         }
     };
 
-    if let Err((msg, loc)) = program.type_check(&mut Environment::new(fun_store.clone())) {
-        return Err(format!("Static Error: {msg}. At {loc}"))
+    if let Err(err) = program.type_check(&mut Environment::new(fun_store.clone())) {
+        return Err(err)
     }
 
     let analysis_time = before.elapsed().as_millis();
@@ -62,11 +62,14 @@ pub fn run_program(input: String, args: Vec<String>) -> Result<(Literal, RunStat
         println!("Terminated in: {run_time}ms")
     }
 
-    Ok((
-        res,
-        RunStats {
-            analysis_millis: analysis_time,
-            run_millis: run_time
-        }
-    ))
+    match res {
+        Ok(lit) => Ok((
+            lit,
+            RunStats {
+                analysis_millis: analysis_time,
+                run_millis: run_time
+            }
+        )),
+        Err(err) => Err(err),
+    }
 }

@@ -24,14 +24,14 @@ pub struct EnvNode<T: Clone + Display> {
     scope_depth: u32,
     id: String,
     value: Value<T>,
-    next: Option<NodeRef<T>>,
+    next: Option<NodeRef<T>>
 }
 
 #[derive(Debug)]
 pub struct Environment<T: Clone + Display> {
     pub scope_depth: u32,
     head: Option<NodeRef<T>>,
-    fun_store: FunStore
+    fun_store: FunStore,
 }
 
 impl<T: Clone + Display> EnvNode<T> {

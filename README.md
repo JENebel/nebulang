@@ -180,7 +180,7 @@ Here is an example of a while loop:
 
 ### For
 
-There are several ways to make a for loop.\
+There are 2 ways to make a for loop.\
 The simplest is just repeating something N times, where N is an int:
 
     for(N) {
@@ -189,53 +189,20 @@ The simplest is just repeating something N times, where N is an int:
 
 Often we need a more flexible for loop. The general syntax is as follows:
 
-    for(ID, FROM, TO, BY) {
+    for(ID = FROM; CONDITION; INCREMENT) {
         //Body
     }
 
-FROM and TO can be both float and int, but beware of type mixing.\
-If FROM is float, TO and BY can be either float or int or mixed, but if FROM is int, TO and BY must be int as well.\
-BY can be left out, and it will default to 1. So these are equivalent:
+In practice:
 
-    for(i, 0, 10, 1) {
-        // Repeated 10 times
-    }
-    for(i, 0, 10) {
-        // Repeated 10 times
+    for(i = 0; i < 10; i += 1) {
+        //Repeated 10 times
     }
 
-With floats:
+CONDITION must evaluate to a boolean, but INCREMENT can be any expression.\
+The brackets are optional for one-liners
 
-    for(i, 0.0, 10, 0.5) {
-        // Repeats 20 times
-         // i will take these values:
-         // i = 0.0
-         // i = 0.5
-         // ...
-         // i = 9.5
-    }
-\
-The loop variable will move from FROM to TO by BY.\
-If TO is smaller than FROM, it will just move from highest to lowest.\ \
-If TO > FROM then TO will be exclusive.\
-If FROM > TO then FROM will be exlcusice.\
-If equal the loop will not run at all.\
-This is to make it as painless as possible to iterate arrays\ \
-
-Here is a visualization:
-
-    for(i, 0, 10, 1) {
-        // i will take these values:
-        // i = 0
-        // i = 1
-        // ...
-        // i = 9
-    }
-
-    for(i, 10, 0, 1) {
-        // i will take these values:
-        // i = 9
-        // i = 8
-        // ...
-        // i = 0
-    }
+    let x = 0;
+    for(10) x += 1;
+    x
+    // Returns 10
