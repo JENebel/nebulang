@@ -49,6 +49,11 @@ lazy_static!(//                                                  for
         Comma,
         EndOfInput
     ];
+
+    /// These tokens are strictly used WITHIN other statements
+    pub static ref WITHIN_TOKENS: Vec<LexToken> = vec![
+        Keyword("else"),
+    ];
 );
 
 /// Parses a program to an AST representation
@@ -63,6 +68,10 @@ pub fn parse(lexed: &mut LexIter) -> Result<(Exp, FunStore), Error> {
 
 /// Parses a statement. Loops, block, let etc.
 fn statement(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+    if within_token(lexed) {
+        return Err(Error::new(ErrorType::SyntaxError, format!("Unexpected token."), curr_loc(lexed)?))
+    }
+
     if let Some((token, _)) = lexed.peek() {
         return match token {
             //Fun decls are handled in: parse_statements()
@@ -103,7 +112,7 @@ fn parse_statements(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let mut exps: Vec<Exp> = Vec::new();
     let mut funs: Vec<(String, usize)> = Vec::new();
 
-    while !terminator(lexed) {
+    while !terminator(lexed) || within_token(lexed) {
         match lexed.peek() {
             Some((Keyword("fun"), _)) => {
                 let decl = fun_decl(lexed, fun_store)?;
@@ -113,7 +122,7 @@ fn parse_statements(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
             _ => exps.push(statement(lexed, fun_store)?)
         }
         
-        match semi_colon(lexed) { _ => {} } //Just discard the semicolon if it is present
+        let _ = semi_colon(lexed); //Just discard the semicolon if it is present
     }
 
     Ok(Exp::BlockExp(exps, funs, loc))
@@ -145,7 +154,7 @@ fn expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     }
 
     if terms.len() == 0 {
-        return Err(Error::new(ErrorType::SyntaxError, format!("Expected something"), curr_loc(lexed)?))
+        return Err(Error::new(ErrorType::SyntaxError, format!("Expected something."), curr_loc(lexed)?))
     }
 
     //Establish precedence
@@ -201,6 +210,8 @@ fn iif(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     keyword(lexed, "if")?;
     let cond = parenthesized_exp(lexed, fun_store)?;
     let pos = statement(lexed, fun_store)?;
+
+    let _ = semi_colon(lexed);
 
     match keyword(lexed, "else") {
         Ok(_) => {
@@ -528,9 +539,14 @@ fn parenthesis(lexed: &mut LexIter, paren: char) -> DiscardRes {
     }
 }
 
-/// Determines if the nex token is a terminator token
+/// Determines if the nex token is a "terminator" token
 fn terminator(lexed: &mut LexIter) -> bool {
     TERMINATORS.contains(&lexed.peek().unwrap().0)
+}
+
+/// Determines if the nex token is a "within" token
+fn within_token(lexed: &mut LexIter) -> bool {
+    WITHIN_TOKENS.contains(&lexed.peek().unwrap().0)
 }
 
 /// Gets the current location in the LexIter

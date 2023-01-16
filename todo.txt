@@ -1,4 +1,37 @@
-Tests
+- Tests
 
-Associated functions
-Arrays
+- Arrays
+
+- Associated functions
+- Custom types
+    - Methods
+
+- External packages
+    - public/private
+
+- Generic types
+- Interfaces
+
+VSCode syntax integration
+
+//Internal functionality
+- Option type
+- Result type
+- Iterator trait
+- Console I/O
+- Math
+    - floor/ceil
+    - min/max
+
+//Standard library
+- Collections
+    - Dynamic arrays
+    - Hashmap
+- File i/o
+- Math
+    - sqrt
+    - pow
+- Time
+
+//Benchmarks
+//Examples

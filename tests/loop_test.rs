@@ -5,7 +5,7 @@ use nebulang::ast::Literal::*;
 use nebulang::ast::ErrorType::*;
 
 #[test]
-pub fn while_test() {
+pub fn simple_while() {
     let input = "
         let x = 0;
         let i = 0;
@@ -20,7 +20,7 @@ pub fn while_test() {
 }
 
 #[test]
-pub fn simplest_for_test() {
+pub fn simplest_for() {
     let input = "
         let x = 0;
         for(10) x += 1;
@@ -31,7 +31,7 @@ pub fn simplest_for_test() {
 }
 
 #[test]
-pub fn simple_for_test() {
+pub fn simple_for() {
     let input = "
         let x = 0;
         for(10) {
@@ -44,7 +44,7 @@ pub fn simple_for_test() {
 }
 
 #[test]
-pub fn standard_for_test() {
+pub fn standard_for() {
     let input = "
         let x = 0;
         for(i=0; i<10; i+=1) {
@@ -57,7 +57,7 @@ pub fn standard_for_test() {
 }
 
 #[test]
-pub fn standard_for_no_braces_test() {
+pub fn standard_for_no_braces() {
     let input = "
         let x = 0;
         for(i=0; i<10; i+=1) x += 1;
@@ -68,7 +68,7 @@ pub fn standard_for_no_braces_test() {
 }
 
 #[test]
-pub fn inverse_standard_for_test() {
+pub fn inverse_standard_for() {
     let input = "
         let x = 0;
         for(i=10; i>0; i-=1) {
@@ -81,7 +81,7 @@ pub fn inverse_standard_for_test() {
 }
 
 #[test]
-pub fn for_condition_must_be_bool_test() {
+pub fn for_condition_must_be_bool() {
     let input = "
         let x = 0;
         for(i=10; 0; i-=1) {

@@ -25,46 +25,46 @@ impl<'a> Exp {
                     | (Float, Str) | (Str, Bool) | (Bool, Str)
                     | (Char, Char) => Ok(Str),
 
-                    (left, right) => Err(Error::new(SyntaxError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
+                    (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
                 Minus | Multiply | Divide | Modulo => match (left.type_check(envir)?, right.type_check(envir)?) {
                     (Int, Int) => Ok(Int),
                     (Int, Float) => Ok(Float),
                     (Float, Int) => Ok(Float),
                     (Float, Float) => Ok(Float),
-                    (left, right) => Err(Error::new(SyntaxError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
+                    (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
                 LessThan | GreaterThan | LessOrEquals | GreaterOrEquals => match (left.type_check(envir)?, right.type_check(envir)?) {
                     (Int, Int) => Ok(Bool),
                     (Int, Float) => Ok(Bool),
                     (Float, Int) => Ok(Bool),
                     (Float, Float) => Ok(Bool),
-                    (left, right) => Err(Error::new(SyntaxError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
+                    (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
                 Equals | NotEquals => match (left.type_check(envir)?, right.type_check(envir)?) {
                     (Int, Int) => Ok(Bool),
                     (Float, Float) => Ok(Bool),
                     (Bool, Bool) => Ok(Bool),
-                    (left, right) => Err(Error::new(SyntaxError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
+                    (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
                 And | Or => match (left.type_check(envir)?, right.type_check(envir)?) {
                     (Bool, Bool) => Ok(Bool),
-                    (left, right) => Err(Error::new(SyntaxError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
+                    (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
                 Assign => match (left.as_ref(), right.type_check(envir)?) {
                     (VarExp(id, loc), value) => {
                         let typ = match envir.lookup_id(id) {
                             Ok(Value::Var(typ)) => typ,
-                            Ok(Value::Fun(_)) => return Err(Error::new(SyntaxError, format!("'{id}' was a function. TODO."), *loc)),
-                            Err(_) => return Err(Error::new(SyntaxError, format!("Variable '{id}' does not exist here."), *loc))
+                            Ok(Value::Fun(_)) => return Err(Error::new(TypeError, format!("'{id}' was a function. TODO."), *loc)),
+                            Err(_) => return Err(Error::new(TypeError, format!("Variable '{id}' does not exist here."), *loc))
                         };
                         if typ != value {
-                            Err(Error::new(SyntaxError, format!("Cannot assign '{value}' to '{id}' which is '{typ}'."), *loc))
+                            Err(Error::new(TypeError, format!("Cannot assign '{value}' to '{id}' which is '{typ}'."), *loc))
                         } else {
                             Ok(Unit)
                         }
                     },
-                    _ => Err(Error::new(SyntaxError, format!("Left side of assignment must be a variable name."), *loc))
+                    _ => Err(Error::new(TypeError, format!("Left side of assignment must be a variable name."), *loc))
                 },
                 PlusAssign | MinusAssign => match left.as_ref() {
                     VarExp(id, loc) => {
@@ -85,11 +85,11 @@ impl<'a> Exp {
                 Minus => match exp.type_check(envir)? {
                     Int => Ok(Int),
                     Float => Ok(Float),
-                    typ => Err(Error::new(SyntaxError, format!("Unary operator '{op}' is not valid for '{typ}'."), *loc)),
+                    typ => Err(Error::new(TypeError, format!("Unary operator '{op}' is not valid for '{typ}'."), *loc)),
                 },
                 Not => match exp.type_check(envir)? {
                     Bool => Ok(Bool),
-                    typ => Err(Error::new(SyntaxError, format!("Unary operator '{op}' is not valid for '{typ}'."), *loc)),
+                    typ => Err(Error::new(TypeError, format!("Unary operator '{op}' is not valid for '{typ}'."), *loc)),
                 },
                 _ => unreachable!("Not a unary operator.")
             },
@@ -110,7 +110,7 @@ impl<'a> Exp {
                     let id = &funs[i].0;
 
                     if envir.id_exist_in_scope(id) {
-                        return Err(Error::new(SyntaxError, format!("Function '{}' already exist in this scope.", funs[i].0), *loc))
+                        return Err(Error::new(TypeError, format!("Function '{}' already exist in this scope.", funs[i].0), *loc))
                     }
 
                     // It is a waste to initialize envir here, maybe fix some time TODO. Same in eval
@@ -131,13 +131,13 @@ impl<'a> Exp {
             VarExp(id, loc) => {
                 match envir.lookup_id(&id) {
                     Ok(Value::Var(typ)) => Ok(typ),
-                    Ok(Value::Fun(_)) => Err(Error::new(SyntaxError, format!("'{id}' is a function and can not be used like a variable."), *loc)),
-                    Err(_) => Err(Error::new(SyntaxError, format!("Variable '{id}' does not exist here."), *loc)),
+                    Ok(Value::Fun(_)) => Err(Error::new(TypeError, format!("'{id}' is a function and can not be used like a variable."), *loc)),
+                    Err(_) => Err(Error::new(TypeError, format!("Variable '{id}' does not exist here."), *loc)),
                 }
             },
             LetExp(id, exp, loc) => {
                 if envir.id_exist_in_scope(&id) {
-                    return Err(Error::new(SyntaxError, format!("Variable '{id}' already exist in this scope."), *loc))
+                    return Err(Error::new(TypeError, format!("Variable '{id}' already exist in this scope."), *loc))
                 }
                 let value = exp.type_check(envir)?;
                 envir.push_variable(id, Value::Var(value)); 
@@ -146,13 +146,13 @@ impl<'a> Exp {
             IfElseExp(cond, pos, neg, loc) => {
                 let cond = cond.type_check(envir)?;
                 if cond != Bool {
-                    return Err(Error::new(SyntaxError, format!("Condition for if must be boolean, got '{cond}'."), *loc))
+                    return Err(Error::new(TypeError, format!("Condition for if must be boolean, got '{cond}'."), *loc))
                 }
                 let pos_type = pos.type_check(envir)?;
                 if let Some(neg) = neg {
                     let neg_type = neg.type_check(envir)?;
                     if pos_type != neg_type {
-                        return Err(Error::new(SyntaxError, format!("If and else branch must have same type, got '{pos_type}' and '{neg_type}'."), *loc))
+                        return Err(Error::new(TypeError, format!("If and else branch must have same type, got '{pos_type}' and '{neg_type}'."), *loc))
                     }
                     Ok(pos_type)
                 } else {
@@ -161,32 +161,32 @@ impl<'a> Exp {
             },
             WhileExp(cond, _, loc) => {
                 if cond.type_check(envir)? != Bool {
-                    return Err(Error::new(SyntaxError, format!("Condition for while must be boolean, got '{cond}'."), *loc))
+                    return Err(Error::new(TypeError, format!("Condition for while must be boolean, got '{cond}'."), *loc))
                 }
                 Ok(Unit)
             }
             FunCallExp(id, args, loc) => {
                 let closure = match envir.lookup_id(id) {
                     Ok(Value::Fun(clo)) => clo,
-                    Ok(Value::Var(typ)) => return Err(Error::new(SyntaxError, format!("Cannot call '{id}' as a function. It has type '{typ}'."), *loc)),
-                    Err(_) => return Err(Error::new(SyntaxError, format!("Function '{id}' does not exist here."), *loc))
+                    Ok(Value::Var(typ)) => return Err(Error::new(TypeError, format!("Cannot call '{id}' as a function. It has type '{typ}'."), *loc)),
+                    Err(_) => return Err(Error::new(TypeError, format!("Function '{id}' does not exist here."), *loc))
                 };
 
                 let rc = envir.get_fun(closure.fun);
                 let func = rc.borrow().clone();
 
                 if func.ret_type == Unknown {
-                    return Err(Error::new(SyntaxError, format!("Cannot call '{id}' here. '{id}' needs a type annotation as the call is prior to its definition."), *loc))
+                    return Err(Error::new(TypeError, format!("Cannot call '{id}' here. '{id}' needs a type annotation as the call is prior to its definition."), *loc))
                 }
                 
                 if args.len() != func.param_types.len() {
-                    return Err(Error::new(SyntaxError, format!("Incorrect argument count. '{id}' takes {} arguments, but {} were given.", func.param_types.len(), args.len()), *loc))
+                    return Err(Error::new(TypeError, format!("Incorrect argument count. '{id}' takes {} arguments, but {} were given.", func.param_types.len(), args.len()), *loc))
                 }
 
                 for i in 0..args.len() {
                     let checked_type = args[i].type_check(envir)?;
                     if checked_type != func.param_types[i] {
-                        return Err(Error::new(SyntaxError, format!("Incorrect argument type. Expected type '{}' for argument {}, but got {}.", func.param_types[i], func.params[i], checked_type), *loc))
+                        return Err(Error::new(TypeError, format!("Incorrect argument type. Expected type '{}' for argument {}, but got {}.", func.param_types[i], func.params[i], checked_type), *loc))
                     }
                 }
 
@@ -246,7 +246,7 @@ impl<'a> Function {
         envir.leave_scope();
 
         if self.annotated && self.ret_type != res {
-            return Err(Error::new(SyntaxError, format!("Return type for {id} does not match annotation, got '{res}' but '{}' was annotated.", self.ret_type), loc))
+            return Err(Error::new(TypeError, format!("Return type for {id} does not match annotation, got '{res}' but '{}' was annotated.", self.ret_type), loc))
         }
 
         Ok(res)

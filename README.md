@@ -41,7 +41,7 @@ Simple factorial function:
 Counts number of primes up to 1000:
 
     let primes = 0;
-    for(i, 0, 1000) {
+    for(i = 0; i <= 1000; i += 1) {
         let p = true;
         let d = 2;
         if(i <= 1) p = false;
@@ -73,10 +73,10 @@ If the **.nbl** extension is used, there is no need for the extension when runni
 
 - Lexical scoping and static types.
 - Everything returns a value.
-- The last statement in a block (and in the program itself), is the return value.
-- All statements need a semicolon after it, except the last in a block (and the program itself)
-- Blocks do not need a semicolon after it, this includes if, while, functions etc.
-- Declarations (fun and let expsression) and assignments all return unit
+- The last statement in a block (and in the program itself), is its return value.
+- All statements need a semicolon after it, except the last in a block (and in the program itself) where it is optional
+- Blocks do not need a semicolon after it, this includes usage in if, while, functions etc.
+- Declarations, assignments, loops, etc. all return unit
 - Variable and function names must start with a letter or '_'
 
 ### Keywords
@@ -114,6 +114,8 @@ Block comments with /**/
     block 
     comment */
 
+An unclosed block comment comments out the rest of the file.
+
 ### Let
 
     let foo = 12
@@ -125,7 +127,7 @@ The simplest use of a function looks like this:
 
     fun add(a: int, b: int) = a + b;
     add(5, 10)
-    //Returns 15
+    // Returns 15
 
 Functions can be declared anywhere, and it will always be available in that scope.\
 This also ensures both self-recursion and mutual recursion.
@@ -181,28 +183,20 @@ Here is an example of a while loop:
 ### For
 
 There are 2 ways to make a for loop.\
-The simplest is just repeating something N times, where N is an int:
+The simplest is just repeating something n times, where n is an int:
 
-    for(N) {
-        //Repeats N times
+    for([n]) {
+        // Repeats n times
     }
 
 Often we need a more flexible for loop. The general syntax is as follows:
 
-    for(ID = FROM; CONDITION; INCREMENT) {
-        //Body
-    }
+    for([id] = [from]; [condition]; [increment]) [body]
 
 In practice:
 
     for(i = 0; i < 10; i += 1) {
-        //Repeated 10 times
+        // Repeated 10 times
     }
 
-CONDITION must evaluate to a boolean, but INCREMENT can be any expression.\
-The brackets are optional for one-liners
-
-    let x = 0;
-    for(10) x += 1;
-    x
-    // Returns 10
+Condition must evaluate to a boolean, but increment can be any expression. Body does not need to be surrounded by brackets if it is a single statement/expression.

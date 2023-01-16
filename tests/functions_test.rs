@@ -5,25 +5,134 @@ use nebulang::ast::Literal::*;
 use nebulang::ast::ErrorType::*;
 
 #[test]
-fn recursion() {
+fn simple_fun() {
     let input = "
-        fun f(a: int, b: int): int = 
-            if(a == 0) b 
-            else f(a-1, b + 1);
-        f(2*12, 22+5)
+        fun foo(): int = 5;
+        foo()
     ";
 
-    expect_lit(input, Int(51));
+    expect_lit(input, Int(5));
 }
 
 #[test]
-fn lort() {
+fn simple_return_type_inference() {
     let input = "
-        fun f(a: int, b: int): int = 
-            if(a == 0) b 
-            else f(a-1, b + 1);
-        f(2*12, 22'*+5)
+        fun foo() = 5;
+        foo()
     ";
 
-    expect_err(input, SyntaxError);
+    expect_lit(input, Int(5));
+}
+
+#[test]
+fn call_other_function_in_function() {
+    let input = "
+        fun foo() = 5;
+        fun bar() = foo();
+        bar()
+    ";
+
+    expect_lit(input, Int(5));
+}
+
+#[test]
+fn use_var_from_outside_of_fun() {
+    let input = "
+        let x = 5;
+        fun foo() = x;
+        foo()
+    ";
+
+    expect_lit(input, Int(5));
+}
+
+#[test]
+fn simple_recursion() {
+    let input = "
+        fun even(x: int): bool =
+            if (x == 0) true else odd(x-1);
+
+        fun odd(x: int): bool =
+            if (x == 0) false else even(x-1);
+        
+        even(10)
+    ";
+
+    expect_lit(input, Bool(true));
+}
+
+#[test]
+fn recursive_functions_can_not_acces_vars_declared_between() {
+    let input = "
+        fun even(x: int): bool =
+            if (x == 0) true else odd(x-1);
+
+        let b = false;
+
+        fun odd(x: int): bool =
+            if (x == 0) b else even(x-1);
+        
+        even(10)
+    ";
+
+    expect_err(input, TypeError);
+}
+
+#[test]
+fn recursive_functions_can_acces_vars_declared_before_both() {
+    let input = "
+        let b = true;
+
+        fun even(x: int): bool =
+            if (x == 0) b else odd(x-1);
+
+        fun odd(x: int): bool =
+            if (x == 0) !b else even(x-1);
+        
+        even(10)
+    ";
+
+    expect_lit(input, Bool(true));
+}
+
+#[test]
+fn require_return_type_on_calling_recursive_function() {
+    let input = "
+        fun even(x: int) =
+            if (x == 0) true else odd(x-1);
+
+        fun odd(x: int): bool =
+            if (x == 0) false else even(x-1);
+        
+        even(10)
+    ";
+
+    expect_err(input, TypeError);
+}
+
+#[test]
+fn require_return_type_on_called_recursive_function() {
+    let input = "
+        fun even(x: int): bool =
+            if (x == 0) true else odd(x-1);
+
+        fun odd(x: int) =
+            if (x == 0) false else even(x-1);
+        
+        even(10)
+    ";
+
+    expect_err(input, TypeError);
+}
+
+#[test]
+fn cannot_call_function_outside_of_the_block_it_is_defined_in() {
+    let input = "
+        {
+            fun foo() = 5
+        }
+        foo()
+    ";
+
+    expect_err(input, TypeError);
 }
