@@ -2,8 +2,25 @@
 
 - Arrays
 
+
+let arr = [10 of 2];
+let arr_pre = [8, 2, 3, 10];
+fun arr_thing(arr: [int]) = {}
+
+arr[2] = 12;
+
+let arr2d = [8 of [8 of 0]];
+fun arr2d_thing(arr: [[int]]) = {}
+
+
+- Control flow
+    - Break/continue/return
+
 - Associated functions
 - Custom types
+    - Classes
+    - Structs
+    - Enums
     - Methods
 
 - External packages
@@ -11,6 +28,7 @@
 
 - Generic types
 - Interfaces
+- Constants
 
 VSCode syntax integration
 

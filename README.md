@@ -57,7 +57,7 @@ Counts number of primes up to 1000:
 
 To run one of the example programs use
 
-    cargo run examples/primes
+    cargo run --release examples/primes
 
 Both relative and absolute paths work.
 
@@ -81,7 +81,7 @@ If the **.nbl** extension is used, there is no need for the extension when runni
 
 ### Keywords
 
-    let, if, else, while, for, fun
+    let, if, else, while, for, fun, of
 
 ### Types
 

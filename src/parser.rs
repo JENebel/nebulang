@@ -15,10 +15,10 @@ type DiscardRes = Result<(), Error>;
 
 lazy_static!(//                                                  for
     ///All legal operators                                   [ comments ]
-    pub static ref OPERATORS: Vec<&'static str> = Vec::from([ "//", "/*" , "+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
+    pub static ref OPERATORS: Vec<&'static str> = Vec::from([ "//", "/*", "+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
 
     ///All legal keywords
-    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun"]);
+    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun", "of"]);
 
     ///All legal types
     pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool", "char", "string", "unit"]);
@@ -46,6 +46,7 @@ lazy_static!(//                                                  for
         Paren('}'),
         Paren(']'),
         Keyword("else"),
+        Keyword("of"),
         Comma,
         EndOfInput
     ];
@@ -53,6 +54,7 @@ lazy_static!(//                                                  for
     /// These tokens are strictly used WITHIN other statements
     pub static ref WITHIN_TOKENS: Vec<LexToken> = vec![
         Keyword("else"),
+        Keyword("of"),
     ];
 );
 
@@ -94,6 +96,7 @@ fn term(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
             Paren('{') =>                   block(lexed, fun_store),
             Keyword("if") =>                iif(lexed, fun_store),
             Paren('(') =>                   parenthesized_exp(lexed, fun_store),
+            Paren('[') =>                   array_init(lexed, fun_store),
             Int(_) | Float(_) | Bool(_)
             | Char(_) | Str(_) =>           literal(lexed),
             Id(_) =>                        var_or_fun_call(lexed, fun_store),
@@ -454,6 +457,17 @@ fn fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp, Strin
     Ok((Exp::FunDeclExp(name.clone(), loc), name, store_index))
 }
 
+fn array_init(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+    let loc = curr_loc(lexed)?;
+    parenthesis(lexed, '[')?;
+    let length_exp = expression(lexed, fun_store)?;
+    keyword(lexed, "of")?;
+    let template_exp = expression(lexed, fun_store)?;
+    parenthesis(lexed, ']')?;
+
+    Ok(Exp::InitArrayExp(Box::new(length_exp), Box::new(template_exp), loc))
+}
+
 /// Parses next token and converts to an ast-type
 fn any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
     match lexed.peek() {
@@ -470,7 +484,13 @@ fn any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
             };
             lexed.next();
             return Ok(typ);
-        } 
+        }
+        Some((Paren('['), _)) => { //Array type
+            lexed.next();
+            let element_type = any_type(lexed)?;
+            parenthesis(lexed, ']')?;
+            Ok(ast::Type::Array(Box::new(element_type)))
+        }
         _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected a type"), curr_loc(lexed)?))
     }
 }
@@ -480,13 +500,13 @@ fn literal(lexed: &mut LexIter) -> KeepRes {
     let loc = curr_loc(lexed)?;
 
     let lit = match lexed.peek() {
-            Some((LexToken::Int(i), _)) => Exp::LiteralExp(Literal::Int(*i), loc),
-            Some((LexToken::Float(f), _)) => Exp::LiteralExp(Literal::Float(*f), loc),
-            Some((LexToken::Bool(b), _)) => Exp::LiteralExp(Literal::Bool(*b), loc),
-            Some((LexToken::Char(c), _)) => Exp::LiteralExp(Literal::Char(*c), loc),
-            Some((LexToken::Str(s), _)) => Exp::LiteralExp(Literal::Str(s.clone()), loc),
-            Some((_, _))=> return Err(Error::new(ErrorType::SyntaxError, format!("Expected literal"), curr_loc(lexed)?)),
-            _ => unreachable!()
+        Some((LexToken::Int(i), _)) => Exp::LiteralExp(Literal::Int(*i), loc),
+        Some((LexToken::Float(f), _)) => Exp::LiteralExp(Literal::Float(*f), loc),
+        Some((LexToken::Bool(b), _)) => Exp::LiteralExp(Literal::Bool(*b), loc),
+        Some((LexToken::Char(c), _)) => Exp::LiteralExp(Literal::Char(*c), loc),
+        Some((LexToken::Str(s), _)) => Exp::LiteralExp(Literal::Str(s.clone()), loc),
+        Some((_, _))=> return Err(Error::new(ErrorType::SyntaxError, format!("Expected literal"), curr_loc(lexed)?)),
+        _ => unreachable!()
     };
     lexed.next();
     Ok(lit)

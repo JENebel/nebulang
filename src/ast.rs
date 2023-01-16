@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fmt::Display;
 
 use crate::lexer::*;
@@ -36,7 +37,12 @@ pub enum Exp {
     FunCallExp(String, Vec<Exp>, Location),
 
     /// (fun-id, loc)
-    FunDeclExp(String, Location)
+    FunDeclExp(String, Location),
+
+    /// Initializes a new Array object and returns this
+    /// 
+    /// (length, template, loc)
+    InitArrayExp(Box<Exp>, Box<Exp>, Location),
 }
 
 pub struct Error {
@@ -85,6 +91,9 @@ pub enum Literal {
     Bool(bool),
     Char(char),
     Str(String),
+
+    /// (Values, Template)
+    Array(Vec<Option<RefCell<Literal>>>, Box<Literal>),
     Unit,
 }
 
@@ -106,6 +115,7 @@ pub enum Type {
     Unit,
     Char,
     Str,
+    Array(Box<Type>),
 
     /// A type value
     //Type(Box<Type>),
@@ -166,7 +176,21 @@ pub enum Operator {
     MinusAssign,
     And,
     Or,
-    NotEquals
+    NotEquals,
+}
+
+impl Literal {
+    pub fn get_type(&self) -> Type {
+        match self {
+            Literal::Int(_) => Type::Int,
+            Literal::Float(_) => Type::Float,
+            Literal::Bool(_) => Type::Bool,
+            Literal::Char(_) => Type::Char,
+            Literal::Str(_) => Type::Str,
+            Literal::Array(_, template) => Type::Array(Box::new(template.get_type())),
+            Literal::Unit => unreachable!("Unit should not show up as a literal outside of returns."),
+        }
+    }
 }
 
 impl Display for Literal {
@@ -178,7 +202,24 @@ impl Display for Literal {
                 Literal::Bool(b) => b.to_string(),
                 Literal::Char(c) => format!("'{}'", c),
                 Literal::Str(s) => format!("\"{}\"", s),
-                Literal::Unit => format!("Unit"),
+                Literal::Array(arr, template) => {
+                    let mut res = String::new();
+                    for lit in arr {
+                        let lit = match lit {
+                            Some(lit) => format!("{}", lit.borrow()),
+                            None => format!("{template}"),
+                        };
+
+                        if res.is_empty() {
+                            res = format!("{lit}")
+                        } else {
+                            res = format!("{res}, {lit}")
+                        }
+                    }
+                    res = format!("[{res}]");
+                    res
+                },
+                Literal::Unit => format!("unit"),
             }
         )
     }
@@ -188,13 +229,14 @@ impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}",
             match self {
-                Type::Int => "int",
-                Type::Float => "float",
-                Type::Bool => "bool",
-                Type::Char => "char",
-                Type::Str => "string",
-                Type::Unit => "unit",
-                Type::Unknown => "any",
+                Type::Int => format!("int"),
+                Type::Float => format!("float"),
+                Type::Bool => format!("bool"),
+                Type::Char => format!("char"),
+                Type::Str => format!("string"),
+                Type::Array(typ) => format!("[{typ}]"),
+                Type::Unit => format!("unit"),
+                Type::Unknown => format!("any"),
                 //_ => todo!()
             }
         )
@@ -210,12 +252,12 @@ impl Display for Exp {
                 Exp::LiteralExp(lit, _) => format!("{lit}"),
                 Exp::VarExp(id, _) => format!("{id}"),
                 Exp::BlockExp(exps, _, _) => {
-                    //Should also output fun defs
-                    let mut res = format!("{{");
+                    //Should also output fun defs TODO
+                    let mut res = String::new();
                     for exp in exps {
                         res = format!("{res}\n {exp}")
                     }
-                    res = format!("{res}\n}}");
+                    res = format!("{{{res}\n}}");
                     res
                 },
                 Exp::IfElseExp(cond, pos, neg, _) => match neg {
@@ -227,6 +269,7 @@ impl Display for Exp {
                 Exp::FunCallExp(_, _, _) => format!("FunCall"),
                 Exp::FunDeclExp(_, _) => format!("FunDecl"),
                 Exp::ForExp(_, _, _, _, _) => format!("For"),
+                Exp::InitArrayExp(length, template, _,) => format!("[{length} of {template}]"),
             }
         )
     }

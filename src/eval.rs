@@ -117,7 +117,7 @@ impl<'a> Exp {
                     },
                     _ => unreachable!("Not a variable id")
                 },
-                _ => unreachable!("Not a binary operator: '{op}'")
+                Not => unreachable!("Not a binary operator: '{op}'")
             },
             UnOpExp(op, exp, _) => match op {
                 Minus => match exp.evaluate(envir)? {
@@ -244,6 +244,18 @@ impl<'a> Exp {
                 envir.leave_scope();
 
                 Ok(Unit)
+            },
+            InitArrayExp(length_exp, template_exp, _) => {
+                let length = match length_exp.evaluate(envir)? {
+                    Int(i) => i as usize,
+                    _ => unreachable!("Typechecked")
+                };
+
+                let template = template_exp.evaluate(envir)?;
+
+                let vec = vec![None; length];
+
+                Ok(Array(vec, Box::new(template)))
             },
         }
     }

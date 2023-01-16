@@ -94,14 +94,7 @@ impl<'a> Exp {
                 _ => unreachable!("Not a unary operator.")
             },
             LiteralExp(lit, _) => {
-                match lit {
-                    Literal::Int(_) => Ok(Int),
-                    Literal::Float(_) => Ok(Float),
-                    Literal::Bool(_) => Ok(Bool),
-                    Literal::Char(_) => Ok(Char),
-                    Literal::Str(_) => Ok(Str),
-                    Literal::Unit => unreachable!("Unit should not show up as a literal outside of returns."),
-                }
+                Ok(lit.get_type())
             },
             BlockExp(exps, funs, loc) => {
                 envir.enter_scope();
@@ -228,6 +221,16 @@ impl<'a> Exp {
                 body.type_check(envir)?;
                 envir.leave_scope();
                 Ok(Unit)
+            },
+            InitArrayExp(length_exp, template_exp, loc) => {
+                let length_type = length_exp.type_check(envir)?;
+                if length_type != Int {
+                    return Err(Error::new(TypeError, format!("Array length must be 'int', found '{length_type}'."), *loc));
+                }
+
+                let element_type = template_exp.type_check(envir)?;
+
+                Ok(Array(Box::new(element_type)))
             },
         }
     }

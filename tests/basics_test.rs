@@ -2,6 +2,7 @@ mod common;
 
 use common::*;
 use nebulang::ast::Literal::*;
+use nebulang::ast::*;
 use nebulang::ast::ErrorType::*;
 
 #[test]
@@ -124,4 +125,14 @@ fn chained_if_else() {
     ";
 
     expect_lit(input, Int(5))
+}
+
+#[test]
+fn array_initialization() {
+    let input = "
+        let arr = [3 of 10];
+        arr
+    ";
+
+    expect_type(input, Type::Array(Box::new(Type::Int)))
 }
