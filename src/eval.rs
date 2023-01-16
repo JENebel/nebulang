@@ -253,9 +253,7 @@ impl<'a> Exp {
 
                 let template = template_exp.evaluate(envir)?;
 
-                let vec = vec![None; length];
-
-                Ok(Array(vec, Box::new(template)))
+                Ok(ArrayLit(Array::new(length, template)))
             },
         }
     }

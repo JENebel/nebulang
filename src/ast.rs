@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::lexer::*;
 use crate::environment::*;
@@ -93,8 +94,63 @@ pub enum Literal {
     Str(String),
 
     /// (Values, Template)
-    Array(Vec<Option<RefCell<Literal>>>, Box<Literal>),
+    ArrayLit(Array),
     Unit,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Array {
+    vec: Rc<RefCell<Vec<Option<Literal>>>>, 
+    template: Box<Literal>
+}
+
+impl Array {
+    pub fn new(length: usize, template: Literal) -> Self {
+        Self { vec: Rc::new(RefCell::new(vec![None; length])), template: Box::new(template) }
+    }
+
+    pub fn get_type(&self) -> Type {
+        Type::Array(Box::new(self.template.get_type()))
+    }
+
+    pub fn get_index(&self, index: usize) -> Literal {
+        match &self.vec.borrow()[index] {
+            Some(lit) => lit.clone(),
+            None => *self.template.clone(),
+        }
+    }
+
+    pub fn set_index(&self, index: usize, new_value: Literal) {
+        self.vec.borrow_mut()[index] = Some(new_value)
+    }
+
+    pub fn length(&self) -> usize {
+        self.vec.borrow().len()
+    }
+}
+
+impl Display for Array {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            {
+                let mut res = String::new();
+                for lit in self.vec.borrow().clone() {
+                    let lit = match lit {
+                        Some(lit) => format!("{}", lit),
+                        None => format!("{}", self.template),
+                    };
+
+                    if res.is_empty() {
+                        res = format!("{lit}")
+                    } else {
+                        res = format!("{res}, {lit}")
+                    }
+                }
+                res = format!("[{res}]");
+                res
+            }
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -187,7 +243,7 @@ impl Literal {
             Literal::Bool(_) => Type::Bool,
             Literal::Char(_) => Type::Char,
             Literal::Str(_) => Type::Str,
-            Literal::Array(_, template) => Type::Array(Box::new(template.get_type())),
+            Literal::ArrayLit(arr) => arr.get_type(),
             Literal::Unit => unreachable!("Unit should not show up as a literal outside of returns."),
         }
     }
@@ -202,23 +258,7 @@ impl Display for Literal {
                 Literal::Bool(b) => b.to_string(),
                 Literal::Char(c) => format!("'{}'", c),
                 Literal::Str(s) => format!("\"{}\"", s),
-                Literal::Array(arr, template) => {
-                    let mut res = String::new();
-                    for lit in arr {
-                        let lit = match lit {
-                            Some(lit) => format!("{}", lit.borrow()),
-                            None => format!("{template}"),
-                        };
-
-                        if res.is_empty() {
-                            res = format!("{lit}")
-                        } else {
-                            res = format!("{res}, {lit}")
-                        }
-                    }
-                    res = format!("[{res}]");
-                    res
-                },
+                Literal::ArrayLit(arr) => format!("{arr}"),
                 Literal::Unit => format!("unit"),
             }
         )
