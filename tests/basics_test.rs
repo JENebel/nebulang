@@ -136,3 +136,13 @@ fn array_initialization() {
 
     expect_type(input, Type::Array(Box::new(Type::Int)))
 }
+
+#[test]
+fn simple_array_acces() {
+    let input = "
+        let arr = [3 of 10];
+        arr[1]
+    ";
+
+    expect_type(input, Type::Array(Box::new(Type::Int)))
+}

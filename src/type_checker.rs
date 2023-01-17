@@ -67,14 +67,13 @@ impl<'a> Exp {
                     _ => Err(Error::new(TypeError, format!("Left side of assignment must be a variable name."), *loc))
                 },
                 PlusAssign | MinusAssign => match left.as_ref() {
-                    VarExp(id, loc) => {
-                        let vexp = Box::new(Exp::VarExp(id.clone(), *loc));
+                    VarExp(_, loc) | AccessArrayExp(_, _, loc) => {
                         let op = match op {
                             PlusAssign => Plus,
                             MinusAssign => Minus,
                             _ => unreachable!()
                         };
-                        Exp::BinOpExp(vexp, op, right.clone(), *loc).type_check(envir)?;
+                        Exp::BinOpExp(left.clone(), op, right.clone(), *loc).type_check(envir)?; //Should not use clone here TODO
                         Ok(Unit)
                     },
                     _ => unreachable!("Not a variable id.")
@@ -231,6 +230,19 @@ impl<'a> Exp {
                 let element_type = template_exp.type_check(envir)?;
 
                 Ok(Array(Box::new(element_type)))
+            },
+            AccessArrayExp(array_exp, index_exp, loc) => {
+                let elem_type = match array_exp.type_check(envir)? {
+                    Type::Array(elem_type) => elem_type,
+                    t => return Err(Error::new(TypeError, format!("Cannot acces '{t}' like an array."), *loc)),
+                };
+
+                match index_exp.type_check(envir)? {
+                    Type::Int => { /* OK */ },
+                    t => return Err(Error::new(TypeError, format!("Array index must be 'int', found '{t}'."), *loc)),
+                }
+
+                Ok(*elem_type)
             },
         }
     }

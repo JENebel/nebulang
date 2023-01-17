@@ -44,6 +44,9 @@ pub enum Exp {
     /// 
     /// (length, template, loc)
     InitArrayExp(Box<Exp>, Box<Exp>, Location),
+
+    /// (array, index, loc)
+    AccessArrayExp(Box<Exp>, Box<Exp>, Location),
 }
 
 pub struct Error {
@@ -309,6 +312,7 @@ impl Display for Exp {
                 Exp::FunCallExp(_, _, _) => format!("FunCall"),
                 Exp::FunDeclExp(_, _) => format!("FunDecl"),
                 Exp::ForExp(_, _, _, _, _) => format!("For"),
+                Exp::AccessArrayExp(arr_exp, index_exp, _,) => format!("{arr_exp}[{index_exp}]"),
                 Exp::InitArrayExp(length, template, _,) => format!("[{length} of {template}]"),
             }
         )

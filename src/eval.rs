@@ -104,15 +104,35 @@ impl<'a> Exp {
                 },
                 PlusAssign | MinusAssign => match left.as_ref() {
                     VarExp(id, loc) => {
+                        let var_exp = Box::new(Exp::VarExp(id.clone(), *loc));
                         let other = Box::new(Exp::LiteralExp(right.evaluate(envir)?, *loc));
-                        let vexp = Box::new(Exp::VarExp(id.clone(), *loc));
                         let op = match op {
                             PlusAssign => Plus,
                             MinusAssign => Minus,
                             _ => unreachable!()
                         };
-                        let new_value = Exp::BinOpExp(vexp, op, other, *loc).evaluate(envir)?;
+                        let new_value = Exp::BinOpExp(var_exp, op, other, *loc).evaluate(envir)?;
                         envir.mutate(id, Value::Var(new_value));
+                        Ok(Unit)
+                    },
+                    AccessArrayExp(array_exp, index_exp, _) => {
+                        let other = Box::new(Exp::LiteralExp(right.evaluate(envir)?, *loc));
+                        let op = match op {
+                            PlusAssign => Plus,
+                            MinusAssign => Minus,
+                            _ => unreachable!()
+                        };
+
+                        let arr = if let ArrayLit(arr) = array_exp.evaluate(envir)? {
+                            arr
+                        } else { unreachable!("Typechecked") };
+
+                        let index = if let Int(index) = index_exp.evaluate(envir)? {
+                            index as usize
+                        } else { unreachable!("Typechecked") };
+
+                        let new_value = Exp::BinOpExp(Box::new(Exp::LiteralExp(arr.get_index(index), *loc)), op, other, *loc).evaluate(envir)?;
+                        arr.set_index(index, new_value);
                         Ok(Unit)
                     },
                     _ => unreachable!("Not a variable id")
@@ -254,6 +274,17 @@ impl<'a> Exp {
                 let template = template_exp.evaluate(envir)?;
 
                 Ok(ArrayLit(Array::new(length, template)))
+            },
+            AccessArrayExp(array_exp, index_exp, _) => {
+                let index = match index_exp.evaluate(envir)? {
+                    Int(i) => i as usize,
+                    _ => unreachable!("Typechecked"),
+                };
+
+                match array_exp.evaluate(envir)? {
+                    ArrayLit(arr) => Ok(arr.get_index(index)),
+                    _ => unreachable!("Typechecked"),
+                }
             },
         }
     }
