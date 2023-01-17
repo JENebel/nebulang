@@ -13,6 +13,12 @@ type LexIter<'a> = Peekable<Iter<'a, (LexToken, Location)>>;
 type KeepRes = Result<Exp, Error>;
 type DiscardRes = Result<(), Error>;
 
+#[derive(Clone, Debug)]
+enum Term {
+    ExpTerm(Exp),
+    OpTerm(ast::Operator, Location)
+}
+
 lazy_static!(//                                                  for
     ///All legal operators                                   [ comments ]
     pub static ref OPERATORS: Vec<&'static str> = Vec::from([ "//", "/*", "+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
@@ -69,7 +75,7 @@ pub fn parse(lexed: &mut LexIter) -> Result<(Exp, FunStore), Error> {
 }
 
 /// Parses a statement. Loops, block, let etc.
-fn statement(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_statement(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     if within_token(lexed) {
         return Err(Error::new(ErrorType::SyntaxError, format!("Unexpected token."), curr_loc(lexed)?))
     }
@@ -77,12 +83,12 @@ fn statement(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     if let Some((token, _)) = lexed.peek() {
         return match token {
             //Fun decls are handled in: parse_statements()
-            Paren('{') =>        block(lexed, fun_store),
-            Keyword("while") =>  wwhile(lexed, fun_store),
-            Keyword("for") =>    ffor(lexed, fun_store),
-            Keyword("let") =>    llet(lexed, fun_store),
-            Keyword("if") =>     iif(lexed, fun_store),
-            _ => expression(lexed, fun_store)
+            Paren('{') =>        parse_block(lexed, fun_store),
+            Keyword("while") =>  parse_while(lexed, fun_store),
+            Keyword("for") =>    parse_for(lexed, fun_store),
+            Keyword("let") =>    parse_let(lexed, fun_store),
+            Keyword("if") =>     parse_if(lexed, fun_store),
+            _ => parse_expression(lexed, fun_store)
         }
     }
 
@@ -90,16 +96,16 @@ fn statement(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 }
 
 /// Parses a term to be used in an expression
-fn term(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_term(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     if let Some((token, _)) = lexed.peek() {
         return match token {
-            Paren('{') =>                   block(lexed, fun_store),
-            Keyword("if") =>                iif(lexed, fun_store),
-            Paren('(') =>                   parenthesized_exp(lexed, fun_store),
-            Paren('[') =>                   array_init_or_acces(lexed, fun_store),
+            Paren('{') =>                   parse_block(lexed, fun_store),
+            Keyword("if") =>                parse_if(lexed, fun_store),
+            Paren('(') =>                   parse_parenthesized_exp(lexed, fun_store),
+            Paren('[') =>                   parse_array_init_or_acces(lexed, fun_store),
             Int(_) | Float(_) | Bool(_)
-            | Char(_) | Str(_) =>           literal(lexed),
-            Id(_) =>                        var_or_fun_call(lexed, fun_store),
+            | Char(_) | Str(_) =>           parse_literal(lexed),
+            Id(_) =>                        parse_var_or_fun_call(lexed, fun_store),
 
             _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected a term."), curr_loc(lexed)?))
         };
@@ -118,35 +124,29 @@ fn parse_statements(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     while !terminator(lexed) || within_token(lexed) {
         match lexed.peek() {
             Some((Keyword("fun"), _)) => {
-                let decl = fun_decl(lexed, fun_store)?;
+                let decl = parse_fun_decl(lexed, fun_store)?;
                 exps.push(decl.0);
                 funs.push((decl.1, decl.2));
             },
-            _ => exps.push(statement(lexed, fun_store)?)
+            _ => exps.push(parse_statement(lexed, fun_store)?)
         }
         
-        let _ = semi_colon(lexed); //Just discard the semicolon if it is present
+        let _ = parse_semi_colon(lexed); //Just discard the semicolon if it is present
     }
 
     Ok(Exp::BlockExp(exps, funs, loc))
 }
 
-#[derive(Clone, Debug)]
-enum Term {
-    ExpTerm(Exp),
-    OpTerm(ast::Operator, Location)
-}
-
 /// Parses an expression
-fn expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let mut terms: Vec<Term> = Vec::new();
 
     // Collect terms
     while !terminator(lexed) {
         if let Some((Operator(_), loc)) = lexed.peek() {
-            terms.push(Term::OpTerm(any_operator(lexed)?, *loc))
+            terms.push(Term::OpTerm(parse_any_operator(lexed)?, *loc))
         } else {
-            match term(lexed, fun_store)? {
+            match parse_term(lexed, fun_store)? {
                 Exp::AccessArrayExp(_, index_exp, loc) => {
                     // Combining the last expression with the access expression
                     if let Term::ExpTerm(exp) = terms[terms.len() - 1].clone() {
@@ -175,11 +175,11 @@ fn expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     }
 
     //Establish precedence
-    Ok(precedence(terms.as_slice())?)
+    Ok(establish_precedence(terms.as_slice())?)
 }
 
 /// Establishes precedence in a list of terms
-fn precedence(terms: &[Term]) -> KeepRes {
+fn establish_precedence(terms: &[Term]) -> KeepRes {
     //There should not be an operator last
     if let Some(Term::OpTerm(op, loc)) = terms.last() {
         return Err(Error::new(ErrorType::SyntaxError, format!("Unexpected operator '{op}'."), *loc))
@@ -199,7 +199,11 @@ fn precedence(terms: &[Term]) -> KeepRes {
             if let (i, Term::OpTerm(op, loc)) = term {
                 if operators.contains(op) && i != 0 {
                     let split = terms.split_at(i);
-                    return Ok(Exp::BinOpExp(Box::new(precedence(split.0)?), *op, Box::new(precedence(&split.1[1..])?), *loc));
+                    return Ok(Exp::BinOpExp(
+                        Box::new(establish_precedence(split.0)?), 
+                        *op, 
+                        Box::new(establish_precedence(&split.1[1..])?), *loc)
+                    );
                 }
             }
         }
@@ -210,7 +214,7 @@ fn precedence(terms: &[Term]) -> KeepRes {
         if !UNARY_OPERATORS.contains(op) {
             return Err(Error::new(ErrorType::SyntaxError, format!("Not a unary operator '{op}'."), *loc))
         }
-        return Ok(Exp::UnOpExp(*op, Box::new(precedence(&terms[1..])?), *loc));
+        return Ok(Exp::UnOpExp(*op, Box::new(establish_precedence(&terms[1..])?), *loc));
     } else if let Some(Term::ExpTerm(_)) = terms.first() {
         if let Term::OpTerm(op, loc) = terms[1] {
             return Err(Error::new(ErrorType::SyntaxError, format!("Not a binary operator '{op}'."), loc))
@@ -221,18 +225,18 @@ fn precedence(terms: &[Term]) -> KeepRes {
 }
 
 /// Parses an if statement/term
-fn iif(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_if(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let loc = curr_loc(lexed)?;
     
-    keyword(lexed, "if")?;
-    let cond = parenthesized_exp(lexed, fun_store)?;
-    let pos = statement(lexed, fun_store)?;
+    parse_keyword(lexed, "if")?;
+    let cond = parse_parenthesized_exp(lexed, fun_store)?;
+    let pos = parse_statement(lexed, fun_store)?;
 
-    let _ = semi_colon(lexed);
+    let _ = parse_semi_colon(lexed);
 
-    match keyword(lexed, "else") {
+    match parse_keyword(lexed, "else") {
         Ok(_) => {
-            let neg = statement(lexed, fun_store)?;
+            let neg = parse_statement(lexed, fun_store)?;
             Ok(Exp::IfElseExp(Box::new(cond), Box::new(pos), Some(Box::new(neg)), loc))
         },
         Err(_) => Ok(Exp::IfElseExp(Box::new(cond), Box::new(pos), None, loc))
@@ -240,53 +244,53 @@ fn iif(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 }
 
 /// Parses a let expression
-fn llet(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_let(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let loc = curr_loc(lexed)?;
 
-    keyword(lexed, "let")?;
-    let id = id(lexed)?;
-    operator(lexed, Assign)?;
-    let exp = expression(lexed, fun_store)?;
+    parse_keyword(lexed, "let")?;
+    let id = parse_id(lexed)?;
+    parse_operator(lexed, Assign)?;
+    let exp = parse_expression(lexed, fun_store)?;
 
     Ok(Exp::LetExp(id.clone(), Box::new(exp), loc))
 }
 
 /// Parses a while loop
-fn wwhile(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_while(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let loc = curr_loc(lexed)?;
 
-    keyword(lexed, "while")?;
-    let cond = parenthesized_exp(lexed, fun_store)?;
-    let exp = statement(lexed, fun_store)?;
+    parse_keyword(lexed, "while")?;
+    let cond = parse_parenthesized_exp(lexed, fun_store)?;
+    let exp = parse_statement(lexed, fun_store)?;
 
     Ok(Exp::WhileExp(Box::new(cond), Box::new(exp), loc))
 }
 
 /// Parses a for loop
-fn ffor(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_for(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let loc = curr_loc(lexed)?;
 
-    keyword(lexed, "for")?;
-    parenthesis(lexed, '(')?;
-    if let Ok(id) = id(lexed) {
+    parse_keyword(lexed, "for")?;
+    parse_parenthesis(lexed, '(')?;
+    if let Ok(id) = parse_id(lexed) {
         // Normal for loop
-        operator(lexed, Assign)?;
+        parse_operator(lexed, Assign)?;
 
         let let_loc = curr_loc(lexed)?;
-        let from_exp = expression(lexed, fun_store)?;
+        let from_exp = parse_expression(lexed, fun_store)?;
         let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(from_exp), let_loc));
 
-        semi_colon(lexed)?;
+        parse_semi_colon(lexed)?;
 
-        let cond_exp = Box::new(expression(lexed, fun_store)?);
+        let cond_exp = Box::new(parse_expression(lexed, fun_store)?);
         
-        semi_colon(lexed)?;
+        parse_semi_colon(lexed)?;
 
-        let inc_exp = Box::new(expression(lexed, fun_store)?);
+        let inc_exp = Box::new(parse_expression(lexed, fun_store)?);
 
-        parenthesis(lexed, ')')?;
+        parse_parenthesis(lexed, ')')?;
 
-        let body = Box::new(statement(lexed, fun_store)?);
+        let body = Box::new(parse_statement(lexed, fun_store)?);
 
         Ok(Exp::ForExp(
             let_exp,
@@ -299,12 +303,12 @@ fn ffor(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
         // Simple for loop
         let id = format!(".for");
         let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(Exp::LiteralExp(Literal::Int(0), loc)), loc));
-        let cond = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id.clone(), loc)), ast::Operator::LessThan, Box::new(expression(lexed, fun_store)?), loc));
+        let cond = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id.clone(), loc)), ast::Operator::LessThan, Box::new(parse_expression(lexed, fun_store)?), loc));
         let increment = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id, loc)), ast::Operator::PlusAssign, Box::new(Exp::LiteralExp(Literal::Int(1), loc)), loc));
         
-        parenthesis(lexed, ')')?;
+        parse_parenthesis(lexed, ')')?;
 
-        let body = Box::new(statement(lexed, fun_store)?);
+        let body = Box::new(parse_statement(lexed, fun_store)?);
 
         Ok(Exp::ForExp(
             let_exp,
@@ -317,23 +321,23 @@ fn ffor(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 }
 
 /// Parses a block. Eg. a series of statements statements surrounded by { }
-fn block(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
-    parenthesis(lexed, '{')?;
+fn parse_block(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+    parse_parenthesis(lexed, '{')?;
     let block = parse_statements(lexed, fun_store)?;
-    parenthesis(lexed, '}')?;
+    parse_parenthesis(lexed, '}')?;
     Ok(block)
 }
 
 /// Parses an exp surrounded by parentheses
-fn parenthesized_exp(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
-    parenthesis(lexed, '(')?;
-    let exp = expression(lexed, fun_store)?;
-    parenthesis(lexed, ')')?;
+fn parse_parenthesized_exp(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+    parse_parenthesis(lexed, '(')?;
+    let exp = parse_expression(lexed, fun_store)?;
+    parse_parenthesis(lexed, ')')?;
     Ok(exp)
 }
 
 /// Parses any operator
-fn any_operator(lexed: &mut LexIter) -> Result<ast::Operator, Error> {
+fn parse_any_operator(lexed: &mut LexIter) -> Result<ast::Operator, Error> {
     match lexed.peek() {
         Some((LexToken::Operator(op), loc)) => {
             let res = match *op {
@@ -364,8 +368,8 @@ fn any_operator(lexed: &mut LexIter) -> Result<ast::Operator, Error> {
 }
 
 /// Parses a specific operator
-fn operator(lexed: &mut LexIter, operator: ast::Operator) -> Result<ast::Operator, Error> {
-    match any_operator(lexed) {
+fn parse_operator(lexed: &mut LexIter, operator: ast::Operator) -> Result<ast::Operator, Error> {
+    match parse_any_operator(lexed) {
         Ok(actual) => if actual == operator {
             Ok(actual)
         } else {
@@ -376,7 +380,7 @@ fn operator(lexed: &mut LexIter, operator: ast::Operator) -> Result<ast::Operato
 }
 
 /// Parses a specific keyword
-fn keyword(lexed: &mut LexIter, keyword: &str) -> DiscardRes {
+fn parse_keyword(lexed: &mut LexIter, keyword: &str) -> DiscardRes {
     match lexed.peek() {
         Some((Keyword(kwd), _)) => if *kwd == keyword {
             lexed.next();
@@ -389,7 +393,7 @@ fn keyword(lexed: &mut LexIter, keyword: &str) -> DiscardRes {
 }
 
 /// Parses an identifier
-fn id(lexed: &mut LexIter) -> Result<String, Error> {
+fn parse_id(lexed: &mut LexIter) -> Result<String, Error> {
     match lexed.peek() {
         Some((LexToken::Id(id), _)) => {
             lexed.next();
@@ -400,24 +404,24 @@ fn id(lexed: &mut LexIter) -> Result<String, Error> {
 }
 
 /// Parses a term that starts with an id. This means a VarExp or FunCallExp
-fn var_or_fun_call(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_var_or_fun_call(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let loc = curr_loc(lexed)?;
-    let id = id(lexed)?;
+    let id = parse_id(lexed)?;
 
     match lexed.peek() {
         Some((Paren('('), _)) => {
-            parenthesis(lexed, '(')?;
+            parse_parenthesis(lexed, '(')?;
 
             let mut params = Vec::new();
             loop {
                 if terminator(lexed) {
                     break
                 }
-                let param = expression(lexed, fun_store)?;
+                let param = parse_expression(lexed, fun_store)?;
                 params.push(param);
-                let _ = comma(lexed);
+                let _ = parse_comma(lexed);
             }
-            parenthesis(lexed, ')')?;
+            parse_parenthesis(lexed, ')')?;
 
             Ok(Exp::FunCallExp(id, params, loc))
         },
@@ -428,33 +432,33 @@ fn var_or_fun_call(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 /// Parses a function declaration.
 /// 
 /// On succes, returns a tuple with the (FunDeclExp, fun id, store index)
-fn fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp, String, usize), Error> {
+fn parse_fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp, String, usize), Error> {
     let loc = curr_loc(lexed)?;
-    keyword(lexed, "fun")?;
-    let name = id(lexed)?;
-    parenthesis(lexed, '(')?;
+    parse_keyword(lexed, "fun")?;
+    let name = parse_id(lexed)?;
+    parse_parenthesis(lexed, '(')?;
     let mut params = Vec::new();
     let mut p_types = Vec::new();
-    while let Ok(param) = id(lexed) {
+    while let Ok(param) = parse_id(lexed) {
         params.push(param);
-        colon(lexed)?;
-        p_types.push(any_type(lexed)?);
+        parse_colon(lexed)?;
+        p_types.push(parse_any_type(lexed)?);
 
-        if let Err(_) = comma(lexed) {
+        if let Err(_) = parse_comma(lexed) {
             break
         }
     }
-    parenthesis(lexed, ')')?;
+    parse_parenthesis(lexed, ')')?;
 
-    let return_type = if let Ok(_) = colon(lexed) {
-        any_type(lexed)?
+    let return_type = if let Ok(_) = parse_colon(lexed) {
+        parse_any_type(lexed)?
     } else {
         ast::Type::Unknown
     };
 
-    operator(lexed, Assign)?;
+    parse_operator(lexed, Assign)?;
 
-    let exp = statement(lexed, fun_store)?;
+    let exp = parse_statement(lexed, fun_store)?;
 
     let func = Function {
         annotated: return_type != ast::Type::Unknown,
@@ -471,25 +475,25 @@ fn fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp, Strin
     Ok((Exp::FunDeclExp(name.clone(), loc), name, store_index))
 }
 
-fn array_init_or_acces(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn parse_array_init_or_acces(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let loc = curr_loc(lexed)?;
-    parenthesis(lexed, '[')?;
-    let length_exp = expression(lexed, fun_store)?;
+    parse_parenthesis(lexed, '[')?;
+    let length_exp = parse_expression(lexed, fun_store)?;
 
-    if let Ok(_) = parenthesis(lexed, ']') {
+    if let Ok(_) = parse_parenthesis(lexed, ']') {
         // Array access
         return Ok(Exp::AccessArrayExp(Box::new(Exp::LiteralExp(Literal::Unit, loc)), Box::new(length_exp), loc))
     }
 
-    keyword(lexed, "of")?;
-    let template_exp = expression(lexed, fun_store)?;
-    parenthesis(lexed, ']')?;
+    parse_keyword(lexed, "of")?;
+    let template_exp = parse_expression(lexed, fun_store)?;
+    parse_parenthesis(lexed, ']')?;
 
     Ok(Exp::InitArrayExp(Box::new(length_exp), Box::new(template_exp), loc))
 }
 
 /// Parses next token and converts to an ast-type
-fn any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
+fn parse_any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
     match lexed.peek() {
         Some((Type(typ), loc)) => {
             let typ = match *typ {
@@ -507,8 +511,8 @@ fn any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
         }
         Some((Paren('['), _)) => { //Array type
             lexed.next();
-            let element_type = any_type(lexed)?;
-            parenthesis(lexed, ']')?;
+            let element_type = parse_any_type(lexed)?;
+            parse_parenthesis(lexed, ']')?;
             Ok(ast::Type::Array(Box::new(element_type)))
         }
         _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected a type."), curr_loc(lexed)?))
@@ -516,7 +520,7 @@ fn any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
 }
 
 /// Parses and returns a literal
-fn literal(lexed: &mut LexIter) -> KeepRes {
+fn parse_literal(lexed: &mut LexIter) -> KeepRes {
     let loc = curr_loc(lexed)?;
 
     let lit = match lexed.peek() {
@@ -533,7 +537,7 @@ fn literal(lexed: &mut LexIter) -> KeepRes {
 }
 
 /// Parses and discards a ";"
-fn semi_colon(lexed: &mut LexIter) -> DiscardRes {
+fn parse_semi_colon(lexed: &mut LexIter) -> DiscardRes {
     match lexed.peek() {
         Some((SemiColon, _)) => {
             lexed.next();
@@ -544,7 +548,7 @@ fn semi_colon(lexed: &mut LexIter) -> DiscardRes {
 }
 
 /// Parses and discards a ":"
-fn colon(lexed: &mut LexIter) -> DiscardRes {
+fn parse_colon(lexed: &mut LexIter) -> DiscardRes {
     match lexed.peek() {
         Some((Colon, _)) => {
             lexed.next();
@@ -555,7 +559,7 @@ fn colon(lexed: &mut LexIter) -> DiscardRes {
 }
 
 /// Parses and discards a ","
-fn comma(lexed: &mut LexIter) -> DiscardRes {
+fn parse_comma(lexed: &mut LexIter) -> DiscardRes {
     match lexed.peek() {
         Some((Comma, _)) => {
             lexed.next();
@@ -566,7 +570,7 @@ fn comma(lexed: &mut LexIter) -> DiscardRes {
 }
 
 /// Parses and discards parentesis if it matches
-fn parenthesis(lexed: &mut LexIter, paren: char) -> DiscardRes {
+fn parse_parenthesis(lexed: &mut LexIter, paren: char) -> DiscardRes {
     match lexed.peek() {
         Some((Paren(par), loc)) => {
             if *par != paren {
