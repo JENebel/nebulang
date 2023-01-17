@@ -283,6 +283,7 @@ pub enum Operator {
 }
 
 impl Literal {
+    /// Returns the type of the literal
     pub fn get_type(&self) -> Type {
         match self {
             Literal::Int(_) => Type::Int,
@@ -293,6 +294,17 @@ impl Literal {
             Literal::ArrayLit(arr) => arr.get_type(),
             Literal::Ref(inner) => Type::Ref(Box::new(inner.borrow().get_type())),
             Literal::Unit => unreachable!("Unit should not show up as a literal outside of returns."),
+        }
+    }
+}
+
+impl Type {
+    /// Determines if the type represents a value.
+    /// Unit, return, break and continue are not
+    pub fn is_value_type(&self) -> bool {
+        match self {
+            Type::Unit => false,
+            _ => true
         }
     }
 }

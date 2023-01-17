@@ -213,3 +213,13 @@ fn require_same_type_in_array_values() {
 
     expect_err(input, TypeError)
 }
+
+#[test]
+fn cannot_have_unit_in_array() {
+    let input = "
+        let arr = [{}, {}, {}];
+        arr[2]
+    ";
+
+    expect_err(input, TypeError)
+}

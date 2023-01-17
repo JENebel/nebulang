@@ -135,3 +135,13 @@ fn chained_if_else() {
 
     expect_lit(input, Int(5))
 }
+
+#[test]
+fn cannot_have_unit_as_a_variable() {
+    let input = "
+        let x = {};
+        x
+    ";
+
+    expect_err(input, TypeError)
+}

@@ -51,28 +51,32 @@ impl<'a> Exp {
                     (Bool, Bool) => Ok(Bool),
                     (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
-                Assign => match (left.as_ref(), right.type_check(envir)?) {
-                    (VarExp(id, loc), value) => {
-                        let typ = match envir.lookup_id(id) {
-                            Ok(Value::Var(typ)) => typ,
-                            Ok(Value::Fun(_)) => return Err(Error::new(TypeError, format!("'{id}' was a function. TODO."), *loc)),
-                            Err(_) => return Err(Error::new(TypeError, format!("Variable '{id}' does not exist here."), *loc))
-                        };
-                        if typ != value {
-                            Err(Error::new(TypeError, format!("Cannot assign '{value}' to '{id}' which is '{typ}'."), *loc))
-                        } else {
-                            Ok(Unit)
-                        }
-                    },
-                    (AccessArrayExp(_, _, loc), value) => {
-                        let elem_type = left.type_check(envir)?;
-                        if elem_type != value {
-                            Err(Error::new(TypeError, format!("Cannot assign '{value}' to element in array of type: '{}'.", Type::Array(Box::new(elem_type))), *loc))
-                        } else {
-                            Ok(Unit)
-                        }
-                    },
-                    _ => Err(Error::new(TypeError, format!("Left side of assignment must be a variable name."), *loc))
+                Assign => {
+                    let value = right.type_check(envir)?;
+
+                    match (left.as_ref(), value) {
+                        (VarExp(id, loc), value) => {
+                            let typ = match envir.lookup_id(id) {
+                                Ok(Value::Var(typ)) => typ,
+                                Ok(Value::Fun(_)) => return Err(Error::new(TypeError, format!("'{id}' was a function. TODO."), *loc)),
+                                Err(_) => return Err(Error::new(TypeError, format!("Variable '{id}' does not exist here."), *loc))
+                            };
+                            if typ != value {
+                                Err(Error::new(TypeError, format!("Cannot assign '{value}' to '{id}' which is '{typ}'."), *loc))
+                            } else {
+                                Ok(Unit)
+                            }
+                        },
+                        (AccessArrayExp(_, _, loc), value) => {
+                            let elem_type = left.type_check(envir)?;
+                            if elem_type != value {
+                                Err(Error::new(TypeError, format!("Cannot assign '{value}' to element in array of type: '{}'.", Type::Array(Box::new(elem_type))), *loc))
+                            } else {
+                                Ok(Unit)
+                            }
+                        },
+                        _ => Err(Error::new(TypeError, format!("Left side of assignment must be a variable name."), *loc))
+                    }
                 },
                 PlusAssign | MinusAssign => match left.as_ref() {
                     VarExp(_, loc) | AccessArrayExp(_, _, loc) => {
@@ -139,7 +143,13 @@ impl<'a> Exp {
                 if envir.id_exist_in_scope(&id) {
                     return Err(Error::new(TypeError, format!("Variable '{id}' already exist in this scope."), *loc))
                 }
+
                 let value = exp.type_check(envir)?;
+
+                if !value.is_value_type() {
+                    return Err(Error::new(TypeError, format!("Cannot use '{value}' as a value."), *loc))
+                }
+
                 envir.push_variable(id, Value::Var(value)); 
                 Ok(Unit)
             },
@@ -265,6 +275,11 @@ impl<'a> Exp {
 
                 // Check if all values are same type
                 let element_type = element_types.first().unwrap();
+
+                if !element_type.is_value_type() {
+                    return Err(Error::new(TypeError, format!("Cannot use '{element_type}' as a value."), *loc))
+                }
+
                 if element_types.iter().any(|t| t != element_type) {
                     Err(Error::new(TypeError, format!("All elements of array must have same type, but got these {values:?}."), *loc))
                 } else {
