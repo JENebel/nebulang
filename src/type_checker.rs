@@ -64,6 +64,14 @@ impl<'a> Exp {
                             Ok(Unit)
                         }
                     },
+                    (AccessArrayExp(_, _, loc), value) => {
+                        let elem_type = left.type_check(envir)?;
+                        if elem_type != value {
+                            Err(Error::new(TypeError, format!("Cannot assign '{value}' to element in array of type: '{}'.", Type::Array(Box::new(elem_type))), *loc))
+                        } else {
+                            Ok(Unit)
+                        }
+                    },
                     _ => Err(Error::new(TypeError, format!("Left side of assignment must be a variable name."), *loc))
                 },
                 PlusAssign | MinusAssign => match left.as_ref() {

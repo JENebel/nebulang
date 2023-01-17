@@ -100,6 +100,20 @@ impl<'a> Exp {
                         envir.mutate(id, Value::Var(value));
                         Ok(Unit)
                     },
+                    (AccessArrayExp(array_exp, index_exp, _), value) => {
+                        let arr = match array_exp.evaluate(envir)? {
+                            ArrayLit(arr) => arr,
+                            _ => unreachable!("typechecked"),
+                        };
+
+                        let index = match index_exp.evaluate(envir)? {
+                            Int(i) => i as usize,
+                            _ => unreachable!("typechecked"),
+                        };
+
+                        arr.set_index(index, value);
+                        Ok(Unit)
+                    },
                     _ => unreachable!("Not a variable id")
                 },
                 PlusAssign | MinusAssign => match left.as_ref() {

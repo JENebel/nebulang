@@ -175,3 +175,29 @@ fn access_init_array_directly_access() {
 
     expect_lit(input, Str("Ding".to_string()))
 }
+
+#[test]
+fn function_with_array_argument() {
+    let input = "
+        fun get_index(arr: [int], i: int) = arr[i];
+
+        get_index([4 of 10], 1)
+    ";
+
+    expect_lit(input, Int(10))
+}
+
+#[test]
+fn array_is_copied_when_passed() {
+    let input = "
+        fun set_index(arr: [int], i: int) = arr[i] = 2;
+
+        let arr = [4 of 10];
+
+        set_index(arr, 1);
+
+        arr[1]
+    ";
+
+    expect_lit(input, Int(10))
+}
