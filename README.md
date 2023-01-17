@@ -85,7 +85,7 @@ If the **.nbl** extension is used, there is no need for the extension when runni
 
 ### Types
 
-    int, float, bool, char, string, unit
+    int, float, bool, char, string, unit, arrays
 
 They are assigned like this.
 
@@ -95,8 +95,8 @@ They are assigned like this.
     let c = 'c'      // char
     let s = "string" // string. Quotes can be used with \"
 
-\+ operation with a string as one side simply concatenates.\
-And char + char = string.
+\+ operation with a string as one side simply concatenates into a string.\
+Also char + char => string.
 
 ### Operators
 
@@ -120,6 +120,19 @@ An unclosed block comment comments out the rest of the file.
 
     let foo = 12
     let bar = false
+
+### If
+
+Blocks in the cases are optional, so these are equivalent:
+
+    if (n < 0) 0 else n;
+    if (n < 0) {0} else {n}
+\
+They can also easily be chained:
+
+    if (n < 0) 0
+    else if (n > 25) 25
+    else n
 
 ### Functions
 
@@ -157,18 +170,38 @@ Type annotations for return types look like this:
 
     fun foo(a: int): int = a * 2
 
-### If
+### Arrays
 
-Blocks in the cases are optional, so these are equivalent:
+Arrays are initialized as follows:
 
-    if (n < 0) 0 else n;
-    if (n < 0) {0} else {n}
-\
-They can also easily be chained:
+    let arr = [12 of "A"];
 
-    if (n < 0) 0
-    else if (n > 25) 25
-    else n
+This will result in an array of length 12. The array will have the type [string], which means 'an array of strings'.\
+The "A" is the 'template' for the array, which is the value the elements will have initially. The template can not be a reference.
+
+Arrays are accesed like this:
+
+    let arr = [12 of "A"];
+    arr[5]
+    // Returns "A"
+
+Multi-dimensional arrays are simply used like this: 
+
+    let arr = [12 of [12 of "A"]];
+    arr[5][3]
+    // Returns "A"
+
+An array type is written like this:
+
+    [int]       // 1 dimension
+    [[int]]     // 2 dimensions
+
+An example use in a function:
+
+    fun doubled_index(arr: [int], index: int) = 2 * arr[index];
+    let arr = [10 of 5];
+    doubled_index(arr, 3)
+    // Returns 10
 
 ### While
 

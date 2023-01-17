@@ -128,7 +128,7 @@ impl<T: Clone + Display> EnvNode<T> {
     }
 }
 
-impl<T: Clone + Display> Environment<T> {
+impl<T: Clone + Display + DeepCopy> Environment<T> {
     pub fn new(fun_store: FunStore) -> Self {
         Self { 
             scope_depth: 0,
@@ -167,6 +167,10 @@ impl<T: Clone + Display> Environment<T> {
     }
 
     pub fn push_variable(&mut self, id: &String, value: Value<T>) {
+        let mut value = value;
+        if let Value::Var(lit) = value {
+            value = Value::Var(lit.deep_copy())
+        }
         let new_var = EnvNode::new(id.clone(), value, self.head.clone(), self.scope_depth);
         self.head = Some(Rc::new(RefCell::new(new_var)));
     }
@@ -181,6 +185,10 @@ impl<T: Clone + Display> Environment<T> {
     }
 
     pub fn mutate(&mut self, id: &String, value: Value<T>) {
+        let mut value = value;
+        if let Value::Var(lit) = value {
+            value = Value::Var(lit.deep_copy())
+        }
         if let Some(head) = &self.head {
             head.as_ref().borrow_mut().mutate(id, value);
         }

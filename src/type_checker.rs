@@ -235,7 +235,10 @@ impl<'a> Exp {
                     return Err(Error::new(TypeError, format!("Array length must be 'int', found '{length_type}'."), *loc));
                 }
 
-                let element_type = template_exp.type_check(envir)?;
+                let element_type = match template_exp.type_check(envir)? {
+                    Ref(typ) => return Err(Error::new(TypeError, format!("Array template cannot be a reference, found '{}'.", Ref(typ)), *loc)),
+                    typ => typ
+                };
 
                 Ok(Array(Box::new(element_type)))
             },

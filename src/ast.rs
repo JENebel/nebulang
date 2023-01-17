@@ -95,10 +95,15 @@ pub enum Literal {
     Bool(bool),
     Char(char),
     Str(String),
+    Ref(Rc<RefCell<Literal>>),
 
     /// (Values, Template)
     ArrayLit(Array),
     Unit,
+}
+
+pub trait DeepCopy {
+    fn deep_copy(&self) -> Self;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -119,16 +124,45 @@ impl Array {
     pub fn get_index(&self, index: usize) -> Literal {
         match &self.vec.borrow()[index] {
             Some(lit) => lit.clone(),
-            None => *self.template.clone(),
+            None => {
+                *self.template.clone()
+            },
         }
     }
 
     pub fn set_index(&self, index: usize, new_value: Literal) {
-        self.vec.borrow_mut()[index] = Some(new_value)
+        self.vec.borrow_mut()[index] = Some(new_value.deep_copy())
     }
 
     pub fn length(&self) -> usize {
         self.vec.borrow().len()
+    }
+
+    pub fn deep_copy(&self) -> Self {
+        let copy = Array::new(self.length(), *self.template.clone());
+
+        for i in 0..self.length() {
+            if let Some(lit) = &self.vec.borrow()[i] {
+                 copy.set_index(i, lit.deep_copy())
+            }
+        }
+
+        copy
+    }
+}
+
+impl DeepCopy for Literal {
+    fn deep_copy(&self) -> Self {
+        match self {
+            Literal::ArrayLit(arr) => Literal::ArrayLit(arr.deep_copy()),
+            _ => self.clone(),
+        }
+    }
+}
+
+impl DeepCopy for Type {
+    fn deep_copy(&self) -> Self {
+        self.clone()
     }
 }
 
@@ -175,6 +209,7 @@ pub enum Type {
     Char,
     Str,
     Array(Box<Type>),
+    Ref(Box<Type>),
 
     /// A type value
     //Type(Box<Type>),
@@ -247,6 +282,7 @@ impl Literal {
             Literal::Char(_) => Type::Char,
             Literal::Str(_) => Type::Str,
             Literal::ArrayLit(arr) => arr.get_type(),
+            Literal::Ref(inner) => Type::Ref(Box::new(inner.borrow().get_type())),
             Literal::Unit => unreachable!("Unit should not show up as a literal outside of returns."),
         }
     }
@@ -262,6 +298,7 @@ impl Display for Literal {
                 Literal::Char(c) => format!("'{}'", c),
                 Literal::Str(s) => format!("\"{}\"", s),
                 Literal::ArrayLit(arr) => format!("{arr}"),
+                Literal::Ref(inner) => format!("&{}", inner.borrow()),
                 Literal::Unit => format!("unit"),
             }
         )
@@ -278,6 +315,7 @@ impl Display for Type {
                 Type::Char => format!("char"),
                 Type::Str => format!("string"),
                 Type::Array(typ) => format!("[{typ}]"),
+                Type::Ref(inner) => format!("&{inner}"),
                 Type::Unit => format!("unit"),
                 Type::Unknown => format!("any"),
                 //_ => todo!()

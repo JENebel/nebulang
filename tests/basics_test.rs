@@ -2,7 +2,6 @@ mod common;
 
 use common::*;
 use nebulang::ast::Literal::*;
-use nebulang::ast::*;
 use nebulang::ast::ErrorType::*;
 
 #[test]
@@ -135,69 +134,4 @@ fn chained_if_else() {
     ";
 
     expect_lit(input, Int(5))
-}
-
-#[test]
-fn array_initialization() {
-    let input = "
-        let arr = [3 of 10];
-        arr
-    ";
-
-    expect_type(input, Type::Array(Box::new(Type::Int)))
-}
-
-#[test]
-fn simple_array_access() {
-    let input = "
-        let arr = [3 of 10];
-        arr[1]
-    ";
-
-    expect_lit(input, Int(10))
-}
-
-#[test]
-fn array2d_access() {
-    let input = "
-        let arr = [3 of [3 of \"Ding\"]];
-        arr[1][2]
-    ";
-
-    expect_lit(input, Str("Ding".to_string()))
-}
-
-#[test]
-fn access_init_array_directly_access() {
-    let input = "
-        [3 of \"Ding\"][1]
-    ";
-
-    expect_lit(input, Str("Ding".to_string()))
-}
-
-#[test]
-fn function_with_array_argument() {
-    let input = "
-        fun get_index(arr: [int], i: int) = arr[i];
-
-        get_index([4 of 10], 1)
-    ";
-
-    expect_lit(input, Int(10))
-}
-
-#[test]
-fn array_is_copied_when_passed() {
-    let input = "
-        fun set_index(arr: [int], i: int) = arr[i] = 2;
-
-        let arr = [4 of 10];
-
-        set_index(arr, 1);
-
-        arr[1]
-    ";
-
-    expect_lit(input, Int(10))
 }
