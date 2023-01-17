@@ -6,15 +6,16 @@ Small interpreted language with static types and lexical scoping implemented in 
   - [Examples](#examples)
   - [Running a program](#running-a-program)
     - [Arguments](#arguments)
-  - [Syntax reference](#syntax-reference)
-    - [Basics](#basics)
+  - [Basics](#basics)
     - [Keywords](#keywords)
     - [Types](#types)
     - [Operators](#operators)
     - [Comments](#comments)
+  - [Syntax reference](#syntax-reference)
     - [Let](#let)
-    - [Functions](#functions)
     - [If](#if)
+    - [Functions](#functions)
+    - [Arrays](#arrays)
     - [While](#while)
     - [For](#for)
 
@@ -67,9 +68,7 @@ If the **.nbl** extension is used, there is no need for the extension when runni
 
     --info      // Shows extra info about the execution
 
-## Syntax reference
-
-### Basics
+## Basics
 
 - Lexical scoping and static types.
 - Everything returns a value.
@@ -78,6 +77,8 @@ If the **.nbl** extension is used, there is no need for the extension when runni
 - Blocks do not need a semicolon after it, this includes usage in if, while, functions etc.
 - Declarations, assignments, loops, etc. all return unit
 - Variable and function names must start with a letter or '_'
+- There is no 'null' or similar, all variables always have legal values
+- Variable types are static and automatically inferred from its initial value
 
 ### Keywords
 
@@ -115,6 +116,8 @@ Block comments with /**/
     comment */
 
 An unclosed block comment comments out the rest of the file.
+
+## Syntax reference
 
 ### Let
 
