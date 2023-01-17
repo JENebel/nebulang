@@ -16,6 +16,16 @@ fn simple_precedence() {
 }
 
 #[test]
+fn double_operator_is_illegal() {
+    expect_err("2 + + 3 * 4", SyntaxError)
+}
+
+#[test]
+fn double_exp_is_illegal() {
+    expect_err("2 4 + 3", SyntaxError)
+}
+
+#[test]
 fn divide_by_zero_should_give_error() {
     expect_err("10 / 0", RuntimeError)
 }
@@ -138,11 +148,30 @@ fn array_initialization() {
 }
 
 #[test]
-fn simple_array_acces() {
+fn simple_array_access() {
     let input = "
         let arr = [3 of 10];
         arr[1]
     ";
 
-    expect_type(input, Type::Array(Box::new(Type::Int)))
+    expect_lit(input, Int(10))
+}
+
+#[test]
+fn array2d_access() {
+    let input = "
+        let arr = [3 of [3 of \"Ding\"]];
+        arr[1][2]
+    ";
+
+    expect_lit(input, Str("Ding".to_string()))
+}
+
+#[test]
+fn access_init_array_directly_access() {
+    let input = "
+        [3 of \"Ding\"][1]
+    ";
+
+    expect_lit(input, Str("Ding".to_string()))
 }

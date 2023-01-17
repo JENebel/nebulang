@@ -96,7 +96,7 @@ fn term(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
             Paren('{') =>                   block(lexed, fun_store),
             Keyword("if") =>                iif(lexed, fun_store),
             Paren('(') =>                   parenthesized_exp(lexed, fun_store),
-            Paren('[') =>                   array_init(lexed, fun_store),
+            Paren('[') =>                   array_init_or_acces(lexed, fun_store),
             Int(_) | Float(_) | Bool(_)
             | Char(_) | Str(_) =>           literal(lexed),
             Id(_) =>                        var_or_fun_call(lexed, fun_store),
@@ -141,23 +141,31 @@ enum Term {
 fn expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let mut terms: Vec<Term> = Vec::new();
 
-    //Collect terms
+    // Collect terms
     while !terminator(lexed) {
         if let Some((Operator(_), loc)) = lexed.peek() {
             terms.push(Term::OpTerm(any_operator(lexed)?, *loc))
         } else {
-            if let Some(Term::ExpTerm(_)) = terms.last() {
-                if terms.len() > 0 {
-                    return Err(Error::new(ErrorType::SyntaxError, format!("Expected operator or ';'"), curr_loc(lexed)?))
+            match term(lexed, fun_store)? {
+                Exp::AccessArrayExp(_, index_exp, loc) => {
+                    let arr_exp = precedence(&terms)?;
+                    terms.clear();
+                    terms.push(Term::ExpTerm(Exp::AccessArrayExp(Box::new(arr_exp), Box::new(*index_exp), loc)))
+                },
+                exp => {
+                    if let Some(Term::ExpTerm(_)) = terms.last() {
+                        if terms.len() > 0 {
+                            return Err(Error::new(ErrorType::SyntaxError, format!("Expected operator or ';'"), curr_loc(lexed)?))
+                        }
+                    }
+                    terms.push(Term::ExpTerm(exp))
                 }
             }
-    
-            terms.push(Term::ExpTerm(term(lexed, fun_store)?))
         }
     }
 
     if terms.len() == 0 {
-        return Err(Error::new(ErrorType::SyntaxError, format!("Expected something."), curr_loc(lexed)?))
+        return Err(Error::new(ErrorType::SyntaxError, format!("Expected something. Got nothing."), curr_loc(lexed)?))
     }
 
     //Establish precedence
@@ -457,10 +465,16 @@ fn fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp, Strin
     Ok((Exp::FunDeclExp(name.clone(), loc), name, store_index))
 }
 
-fn array_init(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+fn array_init_or_acces(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let loc = curr_loc(lexed)?;
     parenthesis(lexed, '[')?;
     let length_exp = expression(lexed, fun_store)?;
+
+    if let Ok(_) = parenthesis(lexed, ']') {
+        // Array access
+        return Ok(Exp::AccessArrayExp(Box::new(Exp::LiteralExp(Literal::Unit, loc)), Box::new(length_exp), loc))
+    }
+
     keyword(lexed, "of")?;
     let template_exp = expression(lexed, fun_store)?;
     parenthesis(lexed, ']')?;
