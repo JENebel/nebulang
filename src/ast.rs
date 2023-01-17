@@ -40,10 +40,15 @@ pub enum Exp {
     /// (fun-id, loc)
     FunDeclExp(String, Location),
 
-    /// Initializes a new Array object and returns this
+    /// Initializes a new Array object with template and returns this
     /// 
     /// (length, template, loc)
-    InitArrayExp(Box<Exp>, Box<Exp>, Location),
+    InitTemplateArrayExp(Box<Exp>, Box<Exp>, Location),
+
+    /// Initializes a new Array object with initial given values
+    /// 
+    /// (initial_values, loc)
+    InitArrayWithValuesExp(Vec<Exp>, Location),
 
     /// (array, index, loc)
     AccessArrayExp(Box<Exp>, Box<Exp>, Location),
@@ -63,7 +68,7 @@ impl Error {
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {} At {}", self.error_type, self.error_msg, self.location)
+        write!(f, "{} at {}: {}", self.error_type, self.location, self.error_msg)
     }
 }
 
@@ -115,6 +120,10 @@ pub struct Array {
 impl Array {
     pub fn new(length: usize, template: Literal) -> Self {
         Self { vec: Rc::new(RefCell::new(vec![None; length])), template: Box::new(template) }
+    }
+
+    pub fn new_from_values(values: Vec<Literal>, template: Literal) -> Self {
+        Self { vec: Rc::new(RefCell::new(values.iter().map(|lit| Some(lit.clone())).collect())), template: Box::new(template) }
     }
 
     pub fn get_type(&self) -> Type {
@@ -342,16 +351,28 @@ impl Display for Exp {
                     res
                 },
                 Exp::IfElseExp(cond, pos, neg, _) => match neg {
-                    Some(neg) => format!("if({cond}) {pos} else {neg}"),
-                    None => format!("if({cond}) {pos}"),
+                    Some(neg) => format!("if({cond}) {pos} else {neg};"),
+                    None => format!("if({cond}) {pos};"),
                 },
                 Exp::LetExp(id, exp, _) =>  format!("let {id} = {exp};"),
                 Exp::WhileExp(cond, exp, _) => format!("while({cond})  {exp}"),
-                Exp::FunCallExp(_, _, _) => format!("FunCall"),
-                Exp::FunDeclExp(_, _) => format!("FunDecl"),
-                Exp::ForExp(_, _, _, _, _) => format!("For"),
+                Exp::FunCallExp(_, _, _) => format!("FunCall"), //TODO
+                Exp::FunDeclExp(_, _) => format!("FunDecl"),    //TODO
+                Exp::ForExp(_, _, _, _, _) => format!("For"),   //TODO
                 Exp::AccessArrayExp(arr_exp, index_exp, _,) => format!("{arr_exp}[{index_exp}]"),
-                Exp::InitArrayExp(length, template, _,) => format!("[{length} of {template}]"),
+                Exp::InitTemplateArrayExp(length, template, _,) => format!("[{length} of {template}]"),
+                Exp::InitArrayWithValuesExp(values, _,) => {
+                    let mut res = String::new();
+                    for lit in values {
+                        if res.is_empty() {
+                            res = format!("{lit}")
+                        } else {
+                            res = format!("{res}, {lit}")
+                        }
+                    }
+                    res = format!("[{res}]");
+                    res
+                },
             }
         )
     }

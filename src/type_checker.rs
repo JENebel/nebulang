@@ -229,7 +229,7 @@ impl<'a> Exp {
                 envir.leave_scope();
                 Ok(Unit)
             },
-            InitArrayExp(length_exp, template_exp, loc) => {
+            InitTemplateArrayExp(length_exp, template_exp, loc) => {
                 let length_type = length_exp.type_check(envir)?;
                 if length_type != Int {
                     return Err(Error::new(TypeError, format!("Array length must be 'int', found '{length_type}'."), *loc));
@@ -254,6 +254,22 @@ impl<'a> Exp {
                 }
 
                 Ok(*elem_type)
+            },
+            InitArrayWithValuesExp(values, loc) => {
+                let mut element_types: Vec<Type> = Vec::new();
+
+                // Type check values
+                for v in values {
+                    element_types.push(v.type_check(envir)?)
+                }
+
+                // Check if all values are same type
+                let element_type = element_types.first().unwrap();
+                if element_types.iter().any(|t| t != element_type) {
+                    Err(Error::new(TypeError, format!("All elements of array must have same type, but got these {values:?}."), *loc))
+                } else {
+                    Ok(Array(Box::new(element_type.clone())))
+                }
             },
         }
     }

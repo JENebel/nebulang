@@ -175,3 +175,41 @@ fn can_not_access_operator() {
 
     expect_err(input, SyntaxError)
 }
+
+#[test]
+fn initialize_simple_array_with_given_values() {
+    let input = "
+        [1, 2, 3, 4]
+    ";
+
+    expect_type(input, Type::Array(Box::new(Type::Int)))
+}
+
+#[test]
+fn initialize_array_from_expressions() {
+    let input = "
+        let x = 12;
+        let arr = [
+            x, 
+            x + 1, 
+            {
+                x = 2;
+                x
+            }, 
+            x * 4
+        ];
+        arr[0] + arr[1] + arr[2] + arr[3]
+    ";
+
+    expect_lit(input, Int(35))
+}
+
+#[test]
+fn require_same_type_in_array_values() {
+    let input = "
+        let arr = [12, 23, \"monkey\"];
+        arr[2]
+    ";
+
+    expect_err(input, TypeError)
+}

@@ -171,7 +171,7 @@ fn parse_expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     }
 
     if terms.len() == 0 {
-        return Err(Error::new(ErrorType::SyntaxError, format!("Expected something. Got nothing."), curr_loc(lexed)?))
+        return Err(Error::new(ErrorType::SyntaxError, format!("Expected expression. Got nothing."), curr_loc(lexed)?))
     }
 
     //Establish precedence
@@ -408,25 +408,25 @@ fn parse_var_or_fun_call(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepR
     let loc = curr_loc(lexed)?;
     let id = parse_id(lexed)?;
 
-    match lexed.peek() {
-        Some((Paren('('), _)) => {
-            parse_parenthesis(lexed, '(')?;
+    if let Some((Paren('('), _)) = lexed.peek() {
+        // Function call
 
-            let mut params = Vec::new();
-            loop {
-                if terminator(lexed) {
-                    break
-                }
-                let param = parse_expression(lexed, fun_store)?;
-                params.push(param);
-                let _ = parse_comma(lexed);
+        parse_parenthesis(lexed, '(')?;
+
+        let mut params = Vec::new();
+        loop {
+            if terminator(lexed) {
+                break
             }
-            parse_parenthesis(lexed, ')')?;
+            params.push(parse_expression(lexed, fun_store)?);
+            let _ = parse_comma(lexed);
+        }
+        parse_parenthesis(lexed, ')')?;
 
-            Ok(Exp::FunCallExp(id, params, loc))
-        },
-        _ => Ok(Exp::VarExp(id, loc)),
+        return Ok(Exp::FunCallExp(id, params, loc))
     }
+
+    Ok(Exp::VarExp(id, loc))
 }
 
 /// Parses a function declaration.
@@ -482,14 +482,33 @@ fn parse_array_init_or_acces(lexed: &mut LexIter, fun_store: &mut FunStore) -> K
 
     if let Ok(_) = parse_parenthesis(lexed, ']') {
         // Array access
+        // The Unit LiteralExp is just a placeholder and is replaced in the parse_expression function
+
         return Ok(Exp::AccessArrayExp(Box::new(Exp::LiteralExp(Literal::Unit, loc)), Box::new(length_exp), loc))
+    }
+
+    if let Ok(_) = parse_comma(lexed) {
+        // Array init with initial values
+
+        let mut values = Vec::new();
+        values.push(length_exp); // The first value
+        loop {
+            if terminator(lexed) {
+                break
+            }
+            values.push(parse_expression(lexed, fun_store)?);
+            let _ = parse_comma(lexed);
+        }
+        parse_parenthesis(lexed, ']')?;
+
+        return Ok(Exp::InitArrayWithValuesExp(values, loc))
     }
 
     parse_keyword(lexed, "of")?;
     let template_exp = parse_expression(lexed, fun_store)?;
     parse_parenthesis(lexed, ']')?;
 
-    Ok(Exp::InitArrayExp(Box::new(length_exp), Box::new(template_exp), loc))
+    Ok(Exp::InitTemplateArrayExp(Box::new(length_exp), Box::new(template_exp), loc))
 }
 
 /// Parses next token and converts to an ast-type

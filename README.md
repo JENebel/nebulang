@@ -182,16 +182,23 @@ Arrays are initialized as follows:
 This will result in an array of length 12. The array will have the type [string], which means 'an array of strings'.\
 The "A" is the 'template' for the array, which is the value the elements will have initially. The template can not be a reference.
 
-Arrays are accesed like this:
+Arrays are accesed with an index surrounded by square brackets.
 
     let arr = [12 of "A"];
     arr[5]
     // Returns "A"
 
+Arrays can also be instantiated with predefined values. These have to be of the same type, but can be any expression.
+
+    let arr = [1, 2, 3, 4];
+
 Multi-dimensional arrays are simply used like this: 
 
-    let arr = [12 of [12 of "A"]];
-    arr[5][3]
+    let arr = [3 of [3 of "A"]];
+        OR
+    let arr = [["A", "A", "A"], ["A", "A", "A"], ["A", "A", "A"]];
+
+    arr[1][2]
     // Returns "A"
 
 An array type is written like this:

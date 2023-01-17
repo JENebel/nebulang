@@ -279,7 +279,7 @@ impl<'a> Exp {
 
                 Ok(Unit)
             },
-            InitArrayExp(length_exp, template_exp, _) => {
+            InitTemplateArrayExp(length_exp, template_exp, _) => {
                 let length = match length_exp.evaluate(envir)? {
                     Int(i) => i as usize,
                     _ => unreachable!("Typechecked")
@@ -299,6 +299,17 @@ impl<'a> Exp {
                     ArrayLit(arr) => Ok(arr.get_index(index)),
                     _ => unreachable!("Typechecked"),
                 }
+            },
+            InitArrayWithValuesExp(values, _) => {
+                let mut literals = Vec::new();
+
+                for v in values {
+                    literals.push(v.evaluate(envir)?)
+                }
+
+                let template = literals.first().unwrap().clone();
+
+                return Ok(ArrayLit(Array::new_from_values(literals, template)))
             },
         }
     }
