@@ -21,6 +21,8 @@ Small interpreted language with static types and lexical scoping implemented in 
       - [For](#for)
     - [Flow control](#flow-control)
       - [Return](#return)
+      - [Break](#break)
+      - [Continue](#continue)
 
 ## Examples
 
@@ -44,17 +46,19 @@ Simple factorial function:
 
 Counts number of primes up to 1000:
 
-    let primes = 0;
-    for(i = 0; i <= 1000; i += 1) {
-        let p = true;
-        let d = 2;
-        if(i <= 1) p = false;
-        while (d<i-1 && p) {
-            if(i%d==0) p=false;
-            d+=1
+    fun is_prime(n: int) = {
+        if (n < 2) return false;
+        for (d = 2; d < n; d += 1) {
+            if (n % d == 0) return false;
         }
-        if(p) primes += 1;
+        true
     }
+
+    let primes = 0;
+    for (i = 0; i <= 1000; i += 1) {
+        if (is_prime(i)) primes += 1;
+    }
+
     primes
 
 ## Running a program
@@ -85,7 +89,7 @@ If the **.nbl** extension is used, there is no need for the extension when runni
 
 ### Keywords
 
-    let, if, else, while, for, fun, of
+    let, if, else, while, for, fun, of, return, break, continue
 
 ### Types
 
@@ -195,7 +199,7 @@ Arrays can also be instantiated with predefined values. These have to be of the 
 
     let arr = [1, 2, 3, 4];
 
-Multi-dimensional arrays are simply used like this: 
+Multi-dimensional arrays are simply used like this:
 
     let arr = [3 of [3 of "A"]];
         OR
@@ -262,3 +266,27 @@ Early returns are possible with a 'return' statement.
     }
 
 Return statements can also be placed outside of functions, to return from the program itself. All returning paths in a function must match the type of the implicitly returned value. In the program itself, there is no requirement for matching return types.
+
+#### Break
+
+To break out of a loop, 'break' can be used.
+
+    let x = 0;
+    for(i=0; i<10; i+=1) {
+        if(i == 5) break;
+        x += 1
+    }
+    x
+    // Returns 5
+
+#### Continue
+
+To skip to next loop iteration, 'continue' can be used.
+
+    let x = 0;
+    for(i=0; i<10; i+=1) {
+        if(i % 2 == 0) continue;
+        x += 1
+    }
+    x
+    // Returns 5

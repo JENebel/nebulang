@@ -83,12 +83,14 @@ fn parse_statement(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     if let Some((token, _)) = lexed.peek() {
         return match token {
             //Fun decls are handled in: parse_statements()
-            Paren('{') =>        parse_block(lexed, fun_store),
-            Keyword("while") =>  parse_while(lexed, fun_store),
-            Keyword("for") =>    parse_for(lexed, fun_store),
-            Keyword("let") =>    parse_let(lexed, fun_store),
-            Keyword("if") =>     parse_if(lexed, fun_store),
-            Keyword("return") =>     parse_return(lexed, fun_store),
+            Paren('{') =>               parse_block(lexed, fun_store),
+            Keyword("while") =>         parse_while(lexed, fun_store),
+            Keyword("for") =>           parse_for(lexed, fun_store),
+            Keyword("let") =>           parse_let(lexed, fun_store),
+            Keyword("if") =>            parse_if(lexed, fun_store),
+            Keyword("return") =>        parse_return(lexed, fun_store),
+            Keyword("break") =>         parse_break(lexed),
+            Keyword("continue") =>      parse_continue(lexed),
             _ => parse_expression(lexed, fun_store)
         }
     }
@@ -269,6 +271,32 @@ fn parse_return(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let value_exp = parse_expression(lexed, fun_store)?;
     
     Ok(Exp::ReturnExp(Box::new(value_exp), loc))
+}
+
+fn parse_break(lexed: &mut LexIter) -> KeepRes {
+    let loc = curr_loc(lexed)?;
+
+    parse_keyword(lexed, "break")?;
+
+    if !terminator(lexed) {
+        // Assumes unit if no expression is given
+        return Err(Error::new(ErrorType::SyntaxError, format!("Expected end of statement."), loc))
+    }
+
+    Ok(Exp::BreakExp( loc))
+}
+
+fn parse_continue(lexed: &mut LexIter) -> KeepRes {
+    let loc = curr_loc(lexed)?;
+
+    parse_keyword(lexed, "continue")?;
+
+    if !terminator(lexed) {
+        // Assumes unit if no expression is given
+        return Err(Error::new(ErrorType::SyntaxError, format!("Expected end of statement."), loc))
+    }
+
+    Ok(Exp::ContinueExp( loc))
 }
 
 /// Parses a while loop

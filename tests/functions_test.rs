@@ -184,24 +184,3 @@ fn mismatched_return_types_disallowed() {
 
     expect_err(input, TypeError);
 }
-
-#[test]
-fn can_return_from_program_with_return_statement() {
-    let input = "
-        return 5;
-
-        let x = 10;
-        x
-    ";
-
-    expect_lit(input, Int(5));
-}
-
-#[test]
-fn unit_return() {
-    let input = "
-        return
-    ";
-
-    expect_lit(input, Unit);
-}

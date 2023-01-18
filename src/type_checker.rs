@@ -11,11 +11,12 @@ type TypeResult = Result<Type, Error>;
 
 pub struct TypeContext {
     pub expected_type: Type,
+    pub is_in_loop: bool,
 }
 
 impl TypeContext {
     pub fn new() -> Self {
-        Self { expected_type: Any }
+        Self { expected_type: Any, is_in_loop: false }
     }
 }
 
@@ -179,12 +180,37 @@ impl<'a> Exp {
                     Ok(Unit)
                 }
             },
-            WhileExp(cond, _, loc) => {
+            WhileExp(cond, body, loc) => {
                 if cond.type_check(envir, context)? != Bool {
                     return Err(Error::new(TypeError, format!("Condition for while must be boolean, got '{cond}'."), *loc))
                 }
+
+                // Check body with is_in_loop = true
+                let in_loop_before = context.is_in_loop;
+                context.is_in_loop = true;
+                body.type_check(envir, context)?;
+                context.is_in_loop = in_loop_before;
+
                 Ok(Unit)
-            }
+            },
+            ForExp(let_exp, cond, increment, body, loc) => {
+                envir.enter_scope();
+                let_exp.type_check(envir, context)?;
+                let cond_type = cond.type_check(envir, context)?;
+                if cond_type != Bool {
+                    return Err(Error::new(TypeError, format!("For loop condition must be 'bool', but got '{cond_type}'."), *loc))
+                }
+                increment.type_check(envir, context)?;
+
+                // Check body with is_in_loop = true
+                let in_loop_before = context.is_in_loop;
+                context.is_in_loop = true;
+                body.type_check(envir, context)?;
+                context.is_in_loop = in_loop_before;
+
+                envir.leave_scope();
+                Ok(Unit)
+            },
             FunCallExp(id, args, loc) => {
                 let closure = match envir.lookup_id(id) {
                     Ok(Value::Fun(clo)) => clo,
@@ -236,18 +262,6 @@ impl<'a> Exp {
                 }
 
                 unreachable!()
-            },
-            ForExp(let_exp, cond, increment, body, loc) => {
-                envir.enter_scope();
-                let_exp.type_check(envir, context)?;
-                let cond_type = cond.type_check(envir, context)?;
-                if cond_type != Bool {
-                    return Err(Error::new(TypeError, format!("For loop condition must be 'bool', but got '{cond_type}'."), *loc))
-                }
-                increment.type_check(envir, context)?;
-                body.type_check(envir, context)?;
-                envir.leave_scope();
-                Ok(Unit)
             },
             InitTemplateArrayExp(length_exp, template_exp, loc) => {
                 let length_type = length_exp.type_check(envir, context)?;
@@ -304,7 +318,13 @@ impl<'a> Exp {
                 } else if return_type != context.expected_type {
                     return Err(Error::new(TypeError, format!("Incorrect return type. Expected '{}', but got '{return_type}'", context.expected_type), *loc))
                 }
-
+                Ok(Any)
+            },
+            BreakExp(loc) | ContinueExp(loc) => {
+                if !context.is_in_loop {
+                    return Err(Error::new(TypeError, format!("Cannot use '{self}' outside of a loop."), *loc))
+                }
+                
                 Ok(Any)
             },
         }

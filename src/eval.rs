@@ -43,7 +43,7 @@ impl<'a> Exp {
                     _ => unreachable!("Runtime type-error should not happen"),
                 },
                 Divide => match (left.evaluate(envir)?, right.evaluate(envir)?) {
-                    (left, Int(0)) => Err(Error::new(ErrorType::RuntimeError, format!("Tried to divide by zero: {left}/0."), *loc)),
+                    (left, Int(0)) => Err(Error::new(ErrorType::RuntimeError, format!("Tried to divide by zero: {left} / 0."), *loc)),
                     (Int(left), Int(right)) => Ok(Int(left / right)),
                     (Int(left), Float(right)) => Ok(Float(left as f64 / right)),
                     (Float(left), Int(right)) => Ok(Float(left / right  as f64)),
@@ -51,6 +51,7 @@ impl<'a> Exp {
                     _ => unreachable!("Runtime type-error should not happen"),
                 },
                 Modulo => match (left.evaluate(envir)?, right.evaluate(envir)?) {
+                    (left, Int(0)) => Err(Error::new(ErrorType::RuntimeError, format!("Tried to get ramainder with a divisor of zero: {left} % 0."), *loc)),
                     (Int(left), Int(right)) => Ok(Int(left % right)),
                     (Int(left), Float(right)) => Ok(Float(left as f64 % right)),
                     (Float(left), Int(right)) => Ok(Float(left % right  as f64)),
@@ -212,18 +213,60 @@ impl<'a> Exp {
 
                 Ok(res)
             },
-            WhileExp(cond, exp, _) => {
+            WhileExp(cond, body, _) => {
+                let mut result = Unit;
                 loop {
                     let res = cond.evaluate(envir)?;
                     match res {
-                        Bool(true) => exp.evaluate(envir)?,
+                        Bool(true) => result = match body.evaluate(envir)? {
+                            Break => break,
+                            Continue => continue,
+                            lit => lit
+                        },
                         Bool(false) => break,
                         _ => panic!("Condition must be a bool")
                     };
+                    if result.is_flow_control_literal() { break; }
                 }
 
-                Ok(Unit)
-            }
+                if result.is_flow_control_literal() {
+                    Ok(result)
+                } else {
+                    Ok(Unit)
+                }
+            },
+            ForExp(let_exp, cond, increment, body, _) => {
+                envir.enter_scope();
+                let_exp.evaluate(envir)?;
+
+                let mut result = Unit;
+
+                loop {
+                    if let Literal::Bool(false) = cond.evaluate(envir)? {
+                        break;
+                    }
+                    result = match body.evaluate(envir)? {
+                        Break => break,
+                        Continue => {
+                            increment.evaluate(envir)?;
+                            continue
+                        },
+                        lit => {
+                            increment.evaluate(envir)?;
+                            lit
+                        }
+                    };
+                    if result.is_flow_control_literal() { break; }
+                }
+
+                envir.leave_scope();
+
+                if result.is_flow_control_literal() {
+                    Ok(result)
+                } else {
+                    Ok(Unit)
+                }
+            },
             FunCallExp(id, args, _) => {
                 // Retrieve closure and function
                 let mut closure = match envir.lookup_id(id) {
@@ -273,22 +316,6 @@ impl<'a> Exp {
                 envir.declare_fun(&id);
                 Ok(Unit)
             },
-            ForExp(let_exp, cond, increment, body, _) => {
-                envir.enter_scope();
-                let_exp.evaluate(envir)?;
-
-                loop {
-                    if let Literal::Bool(false) = cond.evaluate(envir)? {
-                        break;
-                    }
-                    body.evaluate(envir)?;
-                    increment.evaluate(envir)?;
-                }
-
-                envir.leave_scope();
-
-                Ok(Unit)
-            },
             InitTemplateArrayExp(length_exp, template_exp, _) => {
                 let length = match length_exp.evaluate(envir)? {
                     Int(i) => i as usize,
@@ -322,6 +349,8 @@ impl<'a> Exp {
                 return Ok(ArrayLit(Array::new_from_values(literals, template)))
             },
             ReturnExp(exp, _) => Ok(Literal::ReturnedLit(Box::new(exp.evaluate(envir)?))),
+            BreakExp(_) => Ok(Literal::Break),
+            ContinueExp(_) => Ok(Literal::Continue),
         }
     }
 }

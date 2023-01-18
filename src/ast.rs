@@ -55,6 +55,12 @@ pub enum Exp {
 
     /// (value, loc)
     ReturnExp(Box<Exp>, Location),
+
+    /// (loc)
+    BreakExp(Location),
+
+    /// (loc)
+    ContinueExp(Location),
 }
 
 pub struct Error {
@@ -109,7 +115,9 @@ pub enum Literal {
     ArrayLit(Array),
     Unit,
 
-    ReturnedLit(Box<Literal>)
+    ReturnedLit(Box<Literal>),
+    Break,
+    Continue
 }
 
 pub trait DeepCopy {
@@ -230,7 +238,7 @@ pub enum Type {
     /// (params, return-type)
     //Function(Vec<Type>, Box<Type>),
 
-    /// Is equal to all types. Returned by return, yield, break, continue.
+    /// Is equal to all types. Returned by return, break, continue.
     /// 
     /// Also the return type of an unannotated function before type check
     Any
@@ -301,7 +309,7 @@ impl Literal {
             Literal::ArrayLit(arr) => arr.get_type(),
             Literal::Ref(inner) => Type::Ref(Box::new(inner.borrow().get_type())),
             Literal::Unit => Type::Unit,
-            Literal::ReturnedLit(lit) => lit.get_type(),
+            Literal::ReturnedLit(_) | Literal::Break | Literal::Continue => Type::Any,
         }
     }
 
@@ -309,6 +317,8 @@ impl Literal {
     pub fn is_flow_control_literal(&self) -> bool {
         match self {
             Literal::ReturnedLit(_) => true,
+            Literal::Break => true,
+            Literal::Continue => true,
             _ => false,
         }
     }
@@ -356,7 +366,9 @@ impl Display for Literal {
                 Literal::ArrayLit(arr) => format!("{arr}"),
                 Literal::Ref(inner) => format!("&{}", inner.borrow()),
                 Literal::Unit => format!("unit"),
-                Literal::ReturnedLit(lit) => format!("{lit}"),
+                Literal::ReturnedLit(lit) => format!("return({lit})"),
+                Literal::Break => panic!("Tried to display a 'break' control flow literal"),
+                Literal::Continue => panic!("Tried to display a 'continue' control flow literal"),
             }
         )
     }
@@ -421,6 +433,8 @@ impl Display for Exp {
                     res
                 },
                 Exp::ReturnExp(exp, _) => format!("return {exp};"),
+                Exp::BreakExp(_) => format!("break;"),
+                Exp::ContinueExp(_) => format!("continue;"),
             }
         )
     }

@@ -145,3 +145,52 @@ fn cannot_have_unit_as_a_variable() {
 
     expect_err(input, TypeError)
 }
+
+#[test]
+fn can_return_from_program_with_return_statement() {
+    let input = "
+        return 5;
+
+        let x = 10;
+        x
+    ";
+
+    expect_lit(input, Int(5));
+}
+
+#[test]
+fn unit_return() {
+    let input = "
+        return
+    ";
+
+    expect_lit(input, Unit);
+}
+
+#[test]
+fn simple_break() {
+    let input = "
+        let x = 0;
+        for(i=0; i<10; i+=1) {
+            if(i == 5) break;
+            x += 1
+        }
+        x
+    ";
+
+    expect_lit(input, Int(5));
+}
+
+#[test]
+fn simple_continue() {
+    let input = "
+        let x = 0;
+        for(i=0; i<10; i+=1) {
+            if(i % 2 == 0) continue;
+            x += 1
+        }
+        x
+    ";
+
+    expect_lit(input, Int(5));
+}
