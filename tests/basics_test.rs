@@ -194,3 +194,14 @@ fn simple_continue() {
 
     expect_lit(input, Int(5));
 }
+
+#[test]
+fn multiply_assign() {
+    let input = "
+        let x = 3;
+        x *= 4;
+        x
+    ";
+
+    expect_lit(input, Int(12));
+}

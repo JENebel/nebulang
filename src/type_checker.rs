@@ -89,14 +89,9 @@ impl<'a> Exp {
                         _ => Err(Error::new(TypeError, format!("Left side of assignment must be a variable name."), *loc))
                     }
                 },
-                PlusAssign | MinusAssign => match left.as_ref() {
+                PlusAssign | MinusAssign | DivideAssign | MultiplyAssign => match left.as_ref() {
                     VarExp(_, loc) | AccessArrayExp(_, _, loc) => {
-                        let op = match op {
-                            PlusAssign => Plus,
-                            MinusAssign => Minus,
-                            _ => unreachable!()
-                        };
-                        Exp::BinOpExp(left.clone(), op, right.clone(), *loc).type_check(envir, context)?; //Should not use clone here TODO
+                        Exp::BinOpExp(left.clone(), op.strip_assign(), right.clone(), *loc).type_check(envir, context)?; //Should not use clone here TODO
                         Ok(Unit)
                     },
                     _ => unreachable!("Not a variable id.")

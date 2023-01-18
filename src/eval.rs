@@ -117,40 +117,10 @@ impl<'a> Exp {
                     },
                     _ => unreachable!("Not a variable id")
                 },
-                PlusAssign | MinusAssign => match left.as_ref() {
-                    VarExp(id, loc) => {
-                        let var_exp = Box::new(Exp::VarExp(id.clone(), *loc));
-                        let other = Box::new(Exp::LiteralExp(right.evaluate(envir)?, *loc));
-                        let op = match op {
-                            PlusAssign => Plus,
-                            MinusAssign => Minus,
-                            _ => unreachable!()
-                        };
-                        let new_value = Exp::BinOpExp(var_exp, op, other, *loc).evaluate(envir)?;
-                        envir.mutate(id, Value::Var(new_value));
-                        Ok(Unit)
-                    },
-                    AccessArrayExp(array_exp, index_exp, _) => {
-                        let other = Box::new(Exp::LiteralExp(right.evaluate(envir)?, *loc));
-                        let op = match op {
-                            PlusAssign => Plus,
-                            MinusAssign => Minus,
-                            _ => unreachable!()
-                        };
-
-                        let arr = if let ArrayLit(arr) = array_exp.evaluate(envir)? {
-                            arr
-                        } else { unreachable!("Typechecked") };
-
-                        let index = if let Int(index) = index_exp.evaluate(envir)? {
-                            index as usize
-                        } else { unreachable!("Typechecked") };
-
-                        let new_value = Exp::BinOpExp(Box::new(Exp::LiteralExp(arr.get_index(index), *loc)), op, other, *loc).evaluate(envir)?;
-                        arr.set_index(index, new_value);
-                        Ok(Unit)
-                    },
-                    _ => unreachable!("Not a variable id")
+                PlusAssign | MinusAssign | DivideAssign | MultiplyAssign => {
+                    // Lots of clone() here, maybe not good, but seems pretty quick
+                    let new_val = Exp::BinOpExp(left.clone(), op.strip_assign(), right.clone(), *loc).evaluate(envir)?;
+                    Ok(BinOpExp(left.clone(), Assign, Box::new(LiteralExp(new_val, *loc)), *loc).evaluate(envir)?)
                 },
                 Not => unreachable!("Not a binary operator: '{op}'")
             },

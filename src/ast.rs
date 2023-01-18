@@ -292,6 +292,8 @@ pub enum Operator {
     Assign,
     PlusAssign,
     MinusAssign,
+    DivideAssign,
+    MultiplyAssign,    
     And,
     Or,
     NotEquals,
@@ -458,10 +460,26 @@ impl Display for Operator {
                 Operator::Assign => "=",
                 Operator::PlusAssign => "+=",
                 Operator::MinusAssign => "-=",
+                Operator::DivideAssign => "/=",
+                Operator::MultiplyAssign => "*=",
                 Operator::And => "&&",
                 Operator::Or => "||",
                 Operator::NotEquals => "!=",
             }
         )
+    }
+}
+
+impl Operator {
+    /// Strips the 'assign' part of the operator:\
+    /// PlusAssign => Plus
+    pub fn strip_assign(&self) -> Operator {
+        match self {
+            Self::PlusAssign => Self::Plus,
+            Self::MinusAssign => Self::Minus,
+            Self::DivideAssign => Self::Divide,
+            Self::MultiplyAssign => Self::Multiply,
+            _ => panic!("Not an OperatorAssign operator")
+        }
     }
 }

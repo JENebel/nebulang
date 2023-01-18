@@ -21,7 +21,7 @@ enum Term {
 
 lazy_static!(//                                                  for
     ///All legal operators                                   [ comments ]
-    pub static ref OPERATORS: Vec<&'static str> = Vec::from([ "//", "/*", "+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
+    pub static ref OPERATORS: Vec<&'static str> = Vec::from([ "//", "/*", "+=", "-=", "/=", "*=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
 
     ///All legal keywords
     pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun", "of", "return", "break", "continue", "yield"]);
@@ -43,7 +43,7 @@ lazy_static!(//                                                  for
         vec![Equals, NotEquals],
         vec![And],
         vec![Or],
-        vec![Assign, PlusAssign, MinusAssign],
+        vec![Assign, PlusAssign, MinusAssign, DivideAssign, MultiplyAssign],
     ];
 
     pub static ref TERMINATORS: Vec<LexToken> = vec![
@@ -399,6 +399,8 @@ fn parse_any_operator(lexed: &mut LexIter) -> Result<ast::Operator, Error> {
                 "=" => ast::Operator::Assign,
                 "+=" => ast::Operator::PlusAssign,
                 "-=" => ast::Operator::MinusAssign,
+                "/=" => ast::Operator::DivideAssign,
+                "*=" => ast::Operator::MultiplyAssign,
                 "&&" => ast::Operator::And,
                 "||" => ast::Operator::Or,
                 "!=" => ast::Operator::NotEquals,
