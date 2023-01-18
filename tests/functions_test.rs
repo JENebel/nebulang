@@ -136,3 +136,72 @@ fn cannot_call_function_outside_of_the_block_it_is_defined_in() {
 
     expect_err(input, TypeError);
 }
+
+#[test]
+fn simple_early_return() {
+    let input = "
+        fun foo(): int = {
+            return 5;
+
+            let x = 10;
+            x
+        }
+
+        foo()
+    ";
+
+    expect_lit(input, Int(5));
+}
+
+#[test]
+fn can_infer_return_type_from_return_statement() {
+    let input = "
+        fun foo() = {
+            return 5;
+
+            let x = 10;
+            x
+        }
+
+        foo()
+    ";
+
+    expect_lit(input, Int(5));
+}
+
+#[test]
+fn mismatched_return_types_disallowed() {
+    let input = "
+        fun foo() = {
+            return 5.5;
+
+            let x = 10;
+            x
+        }
+
+        foo()
+    ";
+
+    expect_err(input, TypeError);
+}
+
+#[test]
+fn can_return_from_program_with_return_statement() {
+    let input = "
+        return 5;
+
+        let x = 10;
+        x
+    ";
+
+    expect_lit(input, Int(5));
+}
+
+#[test]
+fn unit_return() {
+    let input = "
+        return
+    ";
+
+    expect_lit(input, Unit);
+}

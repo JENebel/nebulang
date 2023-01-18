@@ -1,7 +1,24 @@
-let arr_pre = [8, 2, 3, 10];
-
 - Control flow
     - Break/continue/return
+
+
+fun foo(n: int): string {
+    let x = {
+        if(n == 0) 
+            return "Error"
+        else
+            n / 2;
+    }
+
+    "" + x * 2
+}
+
+for(100) {
+    fun gg() = break;
+
+    gg();
+}
+
 
 - Associated functions
 - Custom types

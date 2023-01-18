@@ -9,11 +9,21 @@ use ErrorType::*;
 
 type TypeResult = Result<Type, Error>;
 
+pub struct TypeContext {
+    pub expected_type: Type,
+}
+
+impl TypeContext {
+    pub fn new() -> Self {
+        Self { expected_type: Any }
+    }
+}
+
 impl<'a> Exp {
-    pub fn type_check(&'a self, envir: &'a mut Environment<Type>) -> TypeResult {
+    pub fn type_check(&'a self, envir: &'a mut Environment<Type>, context: &mut TypeContext) -> TypeResult {
         match self {
             BinOpExp(left, op, right, loc) => match op {
-                Plus => match (left.type_check(envir)?, right.type_check(envir)?) {
+                Plus => match (left.type_check(envir, context)?, right.type_check(envir, context)?) {
                     (Int, Int) => Ok(Int),
                     (Int, Float) => Ok(Float),
                     (Float, Int) => Ok(Float),
@@ -27,32 +37,32 @@ impl<'a> Exp {
 
                     (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
-                Minus | Multiply | Divide | Modulo => match (left.type_check(envir)?, right.type_check(envir)?) {
+                Minus | Multiply | Divide | Modulo => match (left.type_check(envir, context)?, right.type_check(envir, context)?) {
                     (Int, Int) => Ok(Int),
                     (Int, Float) => Ok(Float),
                     (Float, Int) => Ok(Float),
                     (Float, Float) => Ok(Float),
                     (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
-                LessThan | GreaterThan | LessOrEquals | GreaterOrEquals => match (left.type_check(envir)?, right.type_check(envir)?) {
+                LessThan | GreaterThan | LessOrEquals | GreaterOrEquals => match (left.type_check(envir, context)?, right.type_check(envir, context)?) {
                     (Int, Int) => Ok(Bool),
                     (Int, Float) => Ok(Bool),
                     (Float, Int) => Ok(Bool),
                     (Float, Float) => Ok(Bool),
                     (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
-                Equals | NotEquals => match (left.type_check(envir)?, right.type_check(envir)?) {
+                Equals | NotEquals => match (left.type_check(envir, context)?, right.type_check(envir, context)?) {
                     (Int, Int) => Ok(Bool),
                     (Float, Float) => Ok(Bool),
                     (Bool, Bool) => Ok(Bool),
                     (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
-                And | Or => match (left.type_check(envir)?, right.type_check(envir)?) {
+                And | Or => match (left.type_check(envir, context)?, right.type_check(envir, context)?) {
                     (Bool, Bool) => Ok(Bool),
                     (left, right) => Err(Error::new(TypeError, format!("Invalid operation '{op}' for '{left}' and '{right}'."), *loc)),
                 },
                 Assign => {
-                    let value = right.type_check(envir)?;
+                    let value = right.type_check(envir, context)?;
 
                     match (left.as_ref(), value) {
                         (VarExp(id, loc), value) => {
@@ -68,7 +78,7 @@ impl<'a> Exp {
                             }
                         },
                         (AccessArrayExp(_, _, loc), value) => {
-                            let elem_type = left.type_check(envir)?;
+                            let elem_type = left.type_check(envir, context)?;
                             if elem_type != value {
                                 Err(Error::new(TypeError, format!("Cannot assign '{value}' to element in array of type: '{}'.", Type::Array(Box::new(elem_type))), *loc))
                             } else {
@@ -85,7 +95,7 @@ impl<'a> Exp {
                             MinusAssign => Minus,
                             _ => unreachable!()
                         };
-                        Exp::BinOpExp(left.clone(), op, right.clone(), *loc).type_check(envir)?; //Should not use clone here TODO
+                        Exp::BinOpExp(left.clone(), op, right.clone(), *loc).type_check(envir, context)?; //Should not use clone here TODO
                         Ok(Unit)
                     },
                     _ => unreachable!("Not a variable id.")
@@ -93,12 +103,12 @@ impl<'a> Exp {
                 Not => unreachable!("Not a binary operator."),
             },
             UnOpExp(op, exp, loc) => match op {
-                Minus => match exp.type_check(envir)? {
+                Minus => match exp.type_check(envir, context)? {
                     Int => Ok(Int),
                     Float => Ok(Float),
                     typ => Err(Error::new(TypeError, format!("Unary operator '{op}' is not valid for '{typ}'."), *loc)),
                 },
-                Not => match exp.type_check(envir)? {
+                Not => match exp.type_check(envir, context)? {
                     Bool => Ok(Bool),
                     typ => Err(Error::new(TypeError, format!("Unary operator '{op}' is not valid for '{typ}'."), *loc)),
                 },
@@ -125,7 +135,7 @@ impl<'a> Exp {
 
                 let mut returned: Type = Unit;
                 for exp in exps {
-                    returned = exp.type_check(envir)?;
+                    returned = exp.type_check(envir, context)?;
                 }
 
                 envir.leave_scope();
@@ -144,7 +154,7 @@ impl<'a> Exp {
                     return Err(Error::new(TypeError, format!("Variable '{id}' already exist in this scope."), *loc))
                 }
 
-                let value = exp.type_check(envir)?;
+                let value = exp.type_check(envir, context)?;
 
                 if !value.is_value_type() {
                     return Err(Error::new(TypeError, format!("Cannot use '{value}' as a value."), *loc))
@@ -154,13 +164,13 @@ impl<'a> Exp {
                 Ok(Unit)
             },
             IfElseExp(cond, pos, neg, loc) => {
-                let cond = cond.type_check(envir)?;
+                let cond = cond.type_check(envir, context)?;
                 if cond != Bool {
                     return Err(Error::new(TypeError, format!("Condition for if must be boolean, got '{cond}'."), *loc))
                 }
-                let pos_type = pos.type_check(envir)?;
+                let pos_type = pos.type_check(envir, context)?;
                 if let Some(neg) = neg {
-                    let neg_type = neg.type_check(envir)?;
+                    let neg_type = neg.type_check(envir, context)?;
                     if pos_type != neg_type {
                         return Err(Error::new(TypeError, format!("If and else branch must have same type, got '{pos_type}' and '{neg_type}'."), *loc))
                     }
@@ -170,7 +180,7 @@ impl<'a> Exp {
                 }
             },
             WhileExp(cond, _, loc) => {
-                if cond.type_check(envir)? != Bool {
+                if cond.type_check(envir, context)? != Bool {
                     return Err(Error::new(TypeError, format!("Condition for while must be boolean, got '{cond}'."), *loc))
                 }
                 Ok(Unit)
@@ -185,7 +195,7 @@ impl<'a> Exp {
                 let rc = envir.get_fun(closure.fun);
                 let func = rc.borrow().clone();
 
-                if func.ret_type == Unknown {
+                if func.ret_type.is_any() {
                     return Err(Error::new(TypeError, format!("Cannot call '{id}' here. '{id}' needs a type annotation as the call is prior to its definition."), *loc))
                 }
                 
@@ -194,7 +204,7 @@ impl<'a> Exp {
                 }
 
                 for i in 0..args.len() {
-                    let checked_type = args[i].type_check(envir)?;
+                    let checked_type = args[i].type_check(envir, context)?;
                     if checked_type != func.param_types[i] {
                         return Err(Error::new(TypeError, format!("Incorrect argument type. Expected type '{}' for argument {}, but got {}.", func.param_types[i], func.params[i], checked_type), *loc))
                     }
@@ -229,23 +239,23 @@ impl<'a> Exp {
             },
             ForExp(let_exp, cond, increment, body, loc) => {
                 envir.enter_scope();
-                let_exp.type_check(envir)?;
-                let cond_type = cond.type_check(envir)?;
+                let_exp.type_check(envir, context)?;
+                let cond_type = cond.type_check(envir, context)?;
                 if cond_type != Bool {
                     return Err(Error::new(TypeError, format!("For loop condition must be 'bool', but got '{cond_type}'."), *loc))
                 }
-                increment.type_check(envir)?;
-                body.type_check(envir)?;
+                increment.type_check(envir, context)?;
+                body.type_check(envir, context)?;
                 envir.leave_scope();
                 Ok(Unit)
             },
             InitTemplateArrayExp(length_exp, template_exp, loc) => {
-                let length_type = length_exp.type_check(envir)?;
+                let length_type = length_exp.type_check(envir, context)?;
                 if length_type != Int {
                     return Err(Error::new(TypeError, format!("Array length must be 'int', found '{length_type}'."), *loc));
                 }
 
-                let element_type = match template_exp.type_check(envir)? {
+                let element_type = match template_exp.type_check(envir, context)? {
                     Ref(typ) => return Err(Error::new(TypeError, format!("Array template cannot be a reference, found '{}'.", Ref(typ)), *loc)),
                     typ => typ
                 };
@@ -253,12 +263,12 @@ impl<'a> Exp {
                 Ok(Array(Box::new(element_type)))
             },
             AccessArrayExp(array_exp, index_exp, loc) => {
-                let elem_type = match array_exp.type_check(envir)? {
+                let elem_type = match array_exp.type_check(envir, context)? {
                     Type::Array(elem_type) => elem_type,
                     t => return Err(Error::new(TypeError, format!("Cannot acces '{t}' like an array."), *loc)),
                 };
 
-                match index_exp.type_check(envir)? {
+                match index_exp.type_check(envir, context)? {
                     Type::Int => { /* OK */ },
                     t => return Err(Error::new(TypeError, format!("Array index must be 'int', found '{t}'."), *loc)),
                 }
@@ -270,7 +280,7 @@ impl<'a> Exp {
 
                 // Type check values
                 for v in values {
-                    element_types.push(v.type_check(envir)?)
+                    element_types.push(v.type_check(envir, context)?)
                 }
 
                 // Check if all values are same type
@@ -286,24 +296,40 @@ impl<'a> Exp {
                     Ok(Array(Box::new(element_type.clone())))
                 }
             },
+            ReturnExp(exp, loc) => {
+                let return_type = exp.type_check(envir, context)?;
+
+                if context.expected_type.is_any() {
+                    context.expected_type = return_type;
+                } else if return_type != context.expected_type {
+                    return Err(Error::new(TypeError, format!("Incorrect return type. Expected '{}', but got '{return_type}'", context.expected_type), *loc))
+                }
+
+                Ok(Any)
+            },
         }
     }
 }
 
 impl<'a> Function {
-    pub fn type_check(&self, id: &str, loc: Location, envir: &mut Environment<Type>) -> TypeResult {
+    pub fn type_check(&self, id: &str, loc: Location, envir: &mut Environment<Type>,) -> TypeResult {
         envir.enter_scope();
 
         for i in 0..self.param_types.len() {
             envir.push_variable(&self.params[i].clone(), Value::Var(self.param_types[i].clone()));
         }
 
-        let res = self.exp.type_check(envir)?;
-        
+        let context = &mut TypeContext::new();
+        context.expected_type = self.ret_type.clone();
+
+        let res = self.exp.type_check(envir, context)?;
+
         envir.leave_scope();
 
         if self.annotated && self.ret_type != res {
-            return Err(Error::new(TypeError, format!("Return type for {id} does not match annotation, got '{res}' but '{}' was annotated.", self.ret_type), loc))
+            return Err(Error::new(TypeError, format!("Return type for '{id}' does not match annotation, got '{res}' but '{}' was annotated.", self.ret_type), loc))
+        } else if context.expected_type != res {
+            return Err(Error::new(TypeError, format!("Return type mismatch in '{id}'. Expected '{res}' but '{}' is returned within the function.", context.expected_type), loc))
         }
 
         Ok(res)

@@ -52,6 +52,9 @@ pub enum Exp {
 
     /// (array, index, loc)
     AccessArrayExp(Box<Exp>, Box<Exp>, Location),
+
+    /// (value, loc)
+    ReturnExp(Box<Exp>, Location),
 }
 
 pub struct Error {
@@ -105,6 +108,8 @@ pub enum Literal {
     /// (Values, Template)
     ArrayLit(Array),
     Unit,
+
+    ReturnedLit(Box<Literal>)
 }
 
 pub trait DeepCopy {
@@ -209,7 +214,7 @@ pub struct Function {
     pub exp: Box<Exp>
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub enum Type {
     Int,
     Float,
@@ -225,8 +230,10 @@ pub enum Type {
     /// (params, return-type)
     //Function(Vec<Type>, Box<Type>),
 
-    /// Before type check. Should not show up in evaluation!
-    Unknown
+    /// Is equal to all types. Returned by return, yield, break, continue.
+    /// 
+    /// Also the return type of an unannotated function before type check
+    Any
 }
 
 #[derive(Debug, Clone)]
@@ -293,7 +300,16 @@ impl Literal {
             Literal::Str(_) => Type::Str,
             Literal::ArrayLit(arr) => arr.get_type(),
             Literal::Ref(inner) => Type::Ref(Box::new(inner.borrow().get_type())),
-            Literal::Unit => unreachable!("Unit should not show up as a literal outside of returns."),
+            Literal::Unit => Type::Unit,
+            Literal::ReturnedLit(lit) => lit.get_type(),
+        }
+    }
+
+    /// Returns true if it is a control flow literal. Fx break or return
+    pub fn is_flow_control_literal(&self) -> bool {
+        match self {
+            Literal::ReturnedLit(_) => true,
+            _ => false,
         }
     }
 }
@@ -305,6 +321,25 @@ impl Type {
         match self {
             Type::Unit => false,
             _ => true
+        }
+    }
+
+    pub fn is_any(&self) -> bool {
+        match self {
+            Type::Any => true,
+            _ => false
+        }
+    }
+}
+
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Any, _) => true,
+            (_, Self::Any) => true,
+            (Self::Array(l0), Self::Array(r0)) => l0 == r0,
+            (Self::Ref(l0), Self::Ref(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
 }
@@ -321,6 +356,7 @@ impl Display for Literal {
                 Literal::ArrayLit(arr) => format!("{arr}"),
                 Literal::Ref(inner) => format!("&{}", inner.borrow()),
                 Literal::Unit => format!("unit"),
+                Literal::ReturnedLit(lit) => format!("{lit}"),
             }
         )
     }
@@ -338,8 +374,7 @@ impl Display for Type {
                 Type::Array(typ) => format!("[{typ}]"),
                 Type::Ref(inner) => format!("&{inner}"),
                 Type::Unit => format!("unit"),
-                Type::Unknown => format!("any"),
-                //_ => todo!()
+                Type::Any => format!("any"),
             }
         )
     }
@@ -385,6 +420,7 @@ impl Display for Exp {
                     res = format!("[{res}]");
                     res
                 },
+                Exp::ReturnExp(exp, _) => format!("return {exp};"),
             }
         )
     }

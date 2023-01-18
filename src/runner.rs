@@ -4,6 +4,7 @@ use crate::ast::*;
 use crate::lexer::*;
 use crate::parser::*;
 use crate::environment::*;
+use crate::type_checker::TypeContext;
 
 #[allow(dead_code)]
 pub struct RunStats {
@@ -43,7 +44,7 @@ pub fn run_program(input: String, args: Vec<String>) -> Result<(Literal, RunStat
         }
     };
 
-    if let Err(err) = program.type_check(&mut Environment::new(fun_store.clone())) {
+    if let Err(err) = program.type_check(&mut Environment::new(fun_store.clone()), &mut TypeContext::new()) {
         return Err(err)
     }
 
@@ -55,7 +56,11 @@ pub fn run_program(input: String, args: Vec<String>) -> Result<(Literal, RunStat
     }
 
     let before = Instant::now();
-    let res = program.evaluate(&mut Environment::new(fun_store.clone()));
+    let res = match program.evaluate(&mut Environment::new(fun_store.clone())) {
+        // Strip result type
+        Ok(Literal::ReturnedLit(lit)) => Ok(*lit),
+        res => res,
+    };
     let run_time = before.elapsed().as_millis();
 
     if info {

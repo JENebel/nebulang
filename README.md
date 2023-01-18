@@ -16,8 +16,11 @@ Small interpreted language with static types and lexical scoping implemented in 
     - [If](#if)
     - [Functions](#functions)
     - [Arrays](#arrays)
-    - [While](#while)
-    - [For](#for)
+    - [Loops](#loops)
+      - [While](#while)
+      - [For](#for)
+    - [Flow control](#flow-control)
+      - [Return](#return)
 
 ## Examples
 
@@ -152,19 +155,19 @@ A function can acces all variables declared before the declaration of the functi
 
 As mentioned functions can be called before it is declared, but in that case the function needs a type annotation. This is to enable type checks in recursive functions.
 
-Here is an example of mutually recursive functions that access the variable 'g':
+Here is an example of mutually recursive functions that access the variable 'x':
 
-    let g = 0;
+    let x = 0;
     bar(10);
     fun bar(n: int): unit = {
-        g += 1;
+        x += 1;
         if(n>0) baz(n);
     }
     fun baz(n: int): unit = {
-        g += n;
+        x += n;
         if(n>0) bar(n-1);
     }
-    g
+    x
 
 Type annotations are needed for function parameters, but it is optional for the return type.\
 The type checker might not be able to infer the return type, and in that case it will give an error.
@@ -213,17 +216,19 @@ An example use in a function:
     doubled_index(arr, 3)
     // Returns 10
 
-### While
+### Loops
+
+#### While
 
 A while loop always returns unit.\
 Here is an example of a while loop:
 
     let i = 0;
     while(i < 10) {
-        i++
+        i += 1
     }
 
-### For
+#### For
 
 There are 2 ways to make a for loop.\
 The simplest is just repeating something n times, where n is an int:
@@ -243,3 +248,17 @@ In practice:
     }
 
 Condition must evaluate to a boolean, but increment can be any expression. Body does not need to be surrounded by brackets if it is a single statement/expression.
+
+### Flow control
+
+#### Return
+
+Early returns are possible with a 'return' statement.
+
+    fun add(n: int) = {
+        if(n < 0) return 0;
+
+        // Other functionality
+    }
+
+Return statements can also be placed outside of functions, to return from the program itself. All returning paths in a function must match the type of the implicitly returned value. In the program itself, there is no requirement for matching return types.

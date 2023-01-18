@@ -24,7 +24,7 @@ lazy_static!(//                                                  for
     pub static ref OPERATORS: Vec<&'static str> = Vec::from([ "//", "/*", "+=", "-=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
 
     ///All legal keywords
-    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun", "of"]);
+    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun", "of", "return", "break", "continue", "yield"]);
 
     ///All legal types
     pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool", "char", "string", "unit"]);
@@ -88,6 +88,7 @@ fn parse_statement(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
             Keyword("for") =>    parse_for(lexed, fun_store),
             Keyword("let") =>    parse_let(lexed, fun_store),
             Keyword("if") =>     parse_if(lexed, fun_store),
+            Keyword("return") =>     parse_return(lexed, fun_store),
             _ => parse_expression(lexed, fun_store)
         }
     }
@@ -253,6 +254,21 @@ fn parse_let(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     let exp = parse_expression(lexed, fun_store)?;
 
     Ok(Exp::LetExp(id.clone(), Box::new(exp), loc))
+}
+
+fn parse_return(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+    let loc = curr_loc(lexed)?;
+
+    parse_keyword(lexed, "return")?;
+
+    if terminator(lexed) {
+        // Assumes unit if no expression is given
+        return Ok(Exp::ReturnExp(Box::new(Exp::LiteralExp(Literal::Unit, loc)), loc))
+    }
+
+    let value_exp = parse_expression(lexed, fun_store)?;
+    
+    Ok(Exp::ReturnExp(Box::new(value_exp), loc))
 }
 
 /// Parses a while loop
@@ -453,7 +469,7 @@ fn parse_fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp,
     let return_type = if let Ok(_) = parse_colon(lexed) {
         parse_any_type(lexed)?
     } else {
-        ast::Type::Unknown
+        ast::Type::Any
     };
 
     parse_operator(lexed, Assign)?;
@@ -461,7 +477,7 @@ fn parse_fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp,
     let exp = parse_statement(lexed, fun_store)?;
 
     let func = Function {
-        annotated: return_type != ast::Type::Unknown,
+        annotated: return_type != ast::Type::Any,
         ret_type: return_type,
         param_types: p_types,
         params,

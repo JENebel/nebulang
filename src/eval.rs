@@ -179,6 +179,10 @@ impl<'a> Exp {
                 let mut returned = Unit;
                 for exp in exps {
                     returned = exp.evaluate(envir)?;
+
+                    if returned.is_flow_control_literal() {
+                        break;
+                    }
                 }
                 envir.leave_scope();
 
@@ -237,7 +241,7 @@ impl<'a> Exp {
                 }
 
                 //If it is not declared, it takes the most recent scope from decl scope
-                let res: Literal = if !closure.declared {
+                let mut res: Literal = if !closure.declared {
                     let mut renv = envir.get_scope(closure.decl_scope());
                     for i in 0..args.len() {
                         renv.push_variable(&func.borrow().params[i], Value::Var(lits[i].clone()));
@@ -251,6 +255,12 @@ impl<'a> Exp {
                     let res = func.borrow().exp.evaluate(&mut closure.envir)?;
                     closure.envir.leave_scope();
                     res
+                };
+
+                // Strip ReturnLit if present
+                res = match res {
+                    ReturnedLit(lit) => *lit,
+                    lit => lit
                 };
 
                 if func.borrow().ret_type == Type::Unit {
@@ -311,6 +321,7 @@ impl<'a> Exp {
 
                 return Ok(ArrayLit(Array::new_from_values(literals, template)))
             },
+            ReturnExp(exp, _) => Ok(Literal::ReturnedLit(Box::new(exp.evaluate(envir)?))),
         }
     }
 }
