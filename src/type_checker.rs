@@ -175,35 +175,17 @@ impl<'a> Exp {
                     Ok(Unit)
                 }
             },
-            WhileExp(cond, body, loc) => {
-                if cond.type_check(envir, context)? != Bool {
-                    return Err(Error::new(TypeError, format!("Condition for while must be boolean, got '{cond}'."), *loc))
-                }
-
+            LoopExp(body, inc, _) => {
                 // Check body with is_in_loop = true
                 let in_loop_before = context.is_in_loop;
                 context.is_in_loop = true;
                 body.type_check(envir, context)?;
                 context.is_in_loop = in_loop_before;
 
-                Ok(Unit)
-            },
-            ForExp(let_exp, cond, increment, body, loc) => {
-                envir.enter_scope();
-                let_exp.type_check(envir, context)?;
-                let cond_type = cond.type_check(envir, context)?;
-                if cond_type != Bool {
-                    return Err(Error::new(TypeError, format!("For loop condition must be 'bool', but got '{cond_type}'."), *loc))
+                if let Some(exp) = inc {
+                    exp.type_check(envir, context)?;
                 }
-                increment.type_check(envir, context)?;
 
-                // Check body with is_in_loop = true
-                let in_loop_before = context.is_in_loop;
-                context.is_in_loop = true;
-                body.type_check(envir, context)?;
-                context.is_in_loop = in_loop_before;
-
-                envir.leave_scope();
                 Ok(Unit)
             },
             FunCallExp(id, args, loc) => {

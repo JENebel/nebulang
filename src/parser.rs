@@ -24,7 +24,7 @@ lazy_static!(//                                                  for
     pub static ref OPERATORS: Vec<&'static str> = Vec::from([ "//", "/*", "+=", "-=", "/=", "*=", "+", "-", "*", "/", "%", "<=", ">=", "<", ">", "!=", "!", "==", "=", "&&", "||"]);
 
     ///All legal keywords
-    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "while", "for", "let", "fun", "of", "return", "break", "continue", "yield"]);
+    pub static ref KEYWORDS: Vec<&'static str> = Vec::from(["if", "else", "loop", "while", "for", "let", "fun", "of", "return", "break", "continue", "yield"]);
 
     ///All legal types
     pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool", "char", "string", "unit"]);
@@ -84,6 +84,7 @@ fn parse_statement(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
         return match token {
             //Fun decls are handled in: parse_statements()
             Paren('{') =>               parse_block(lexed, fun_store),
+            Keyword("loop") =>          parse_loop(lexed, fun_store),
             Keyword("while") =>         parse_while(lexed, fun_store),
             Keyword("for") =>           parse_for(lexed, fun_store),
             Keyword("let") =>           parse_let(lexed, fun_store),
@@ -312,9 +313,22 @@ fn parse_while(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 
     parse_keyword(lexed, "while")?;
     let cond = parse_parenthesized_exp(lexed, fun_store)?;
-    let exp = parse_statement(lexed, fun_store)?;
+    let body = parse_statement(lexed, fun_store)?;
 
-    Ok(Exp::WhileExp(Box::new(cond), Box::new(exp), loc))
+    // if (condition) body else break;
+    let block = Exp::IfElseExp(Box::new(cond), Box::new(body), Some(Box::new(Exp::BreakExp(loc))), loc);
+
+    Ok(Exp::LoopExp(Box::new(block), None, loc))
+}
+
+/// Parses a simple loop
+fn parse_loop(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
+    let loc = curr_loc(lexed)?;
+
+    parse_keyword(lexed, "loop")?;
+    let body = parse_statement(lexed, fun_store)?;
+
+    Ok(Exp::LoopExp(Box::new(body), None, loc))
 }
 
 /// Parses a for loop
@@ -323,52 +337,50 @@ fn parse_for(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 
     parse_keyword(lexed, "for")?;
     parse_parenthesis(lexed, '(')?;
+
+    let let_exp;
+    let cond_exp;
+    let inc_exp;
+    let body_exp;
     if let Ok(id) = parse_id(lexed) {
         // Normal for loop
         parse_operator(lexed, Assign)?;
-
         let let_loc = curr_loc(lexed)?;
         let from_exp = parse_expression(lexed, fun_store)?;
-        let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(from_exp), let_loc));
-
+        let_exp =  Exp::LetExp(id, Box::new(from_exp), let_loc);
         parse_semi_colon(lexed)?;
-
-        let cond_exp = Box::new(parse_expression(lexed, fun_store)?);
-        
+        cond_exp = parse_expression(lexed, fun_store)?;
         parse_semi_colon(lexed)?;
-
-        let inc_exp = Box::new(parse_expression(lexed, fun_store)?);
-
+        inc_exp =  parse_expression(lexed, fun_store)?;
         parse_parenthesis(lexed, ')')?;
-
-        let body = Box::new(parse_statement(lexed, fun_store)?);
-
-        Ok(Exp::ForExp(
-            let_exp,
-            cond_exp,
-            inc_exp,
-            body,
-            loc
-        ))
+        body_exp = parse_statement(lexed, fun_store)?;
     } else {
         // Simple for loop
-        let id = format!(".for");
-        let let_exp = Box::new(Exp::LetExp(id.clone(), Box::new(Exp::LiteralExp(Literal::Int(0), loc)), loc));
-        let cond = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id.clone(), loc)), ast::Operator::LessThan, Box::new(parse_expression(lexed, fun_store)?), loc));
-        let increment = Box::new(Exp::BinOpExp(Box::new(Exp::VarExp(id, loc)), ast::Operator::PlusAssign, Box::new(Exp::LiteralExp(Literal::Int(1), loc)), loc));
-        
+        let_exp =  Exp::LetExp(format!(".for").clone(), Box::new(Exp::LiteralExp(Literal::Int(0), loc)), loc);
+        cond_exp = Exp::BinOpExp(Box::new(Exp::VarExp(format!(".for"), loc)), ast::Operator::LessThan, Box::new(parse_expression(lexed, fun_store)?), loc);
+        let new_value = Exp::BinOpExp(Box::new(Exp::VarExp(format!(".for"), loc)), Plus, Box::new(Exp::LiteralExp(Literal::Int(1), loc)), loc);
+        inc_exp = Exp::BinOpExp(Box::new(Exp::VarExp(format!(".for"), loc)), Assign, Box::new(new_value), loc);
         parse_parenthesis(lexed, ')')?;
-
-        let body = Box::new(parse_statement(lexed, fun_store)?);
-
-        Ok(Exp::ForExp(
-            let_exp,
-            cond,
-            increment,
-            body,
-            loc
-        ))
+        body_exp = parse_statement(lexed, fun_store)?;
     }
+
+    let body = Exp::IfElseExp(Box::new(cond_exp), Box::new(body_exp), Some(Box::new(Exp::BreakExp(loc))), loc);
+
+    let for_exp = Exp::BlockExp(vec![let_exp, Exp::LoopExp(Box::new(body), Some(Box::new(inc_exp)), loc)], Vec::new(), loc);
+
+    /* This is the constructed expression
+    {
+        let_exp;
+        loop {
+            if(cond_exp) break;
+            else {
+                body_exp
+            }
+        }
+    }
+    */
+
+    Ok(for_exp)
 }
 
 /// Parses a block. Eg. a series of statements statements surrounded by { }

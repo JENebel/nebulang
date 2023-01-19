@@ -1,8 +1,5 @@
 - Clean up 'ast.rs'
-- For as while sugar, or maybe both as LoopExp sugar?
-
 - References
-
 - Associated functions
 - Custom types
     - Classes
@@ -18,6 +15,8 @@
 - Constants
 
 VSCode syntax integration
+
+Some kind of better for syntax/foreach in range... Something
 
 // Internal functionality
 - Option type

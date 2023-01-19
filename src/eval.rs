@@ -179,59 +179,32 @@ impl<'a> Exp {
 
                 Ok(res)
             },
-            WhileExp(cond, body, _) => {
-                let mut result = Unit;
+            LoopExp(body, inc, _) => {
                 loop {
-                    let res = cond.evaluate(envir)?;
-                    match res {
-                        Bool(true) => result = match body.evaluate(envir)? {
-                            Break => break,
-                            Continue => continue,
-                            lit => lit
-                        },
-                        Bool(false) => break,
-                        _ => panic!("Condition must be a bool")
-                    };
-                    if result.is_flow_control_literal() { break; }
-                }
-
-                if result.is_flow_control_literal() {
-                    Ok(result)
-                } else {
-                    Ok(Unit)
-                }
-            },
-            ForExp(let_exp, cond, increment, body, _) => {
-                envir.enter_scope();
-                let_exp.evaluate(envir)?;
-
-                let mut result = Unit;
-
-                loop {
-                    if let Literal::Bool(false) = cond.evaluate(envir)? {
-                        break;
-                    }
-                    result = match body.evaluate(envir)? {
+                    let result = match body.evaluate(envir)? {
                         Break => break,
                         Continue => {
-                            increment.evaluate(envir)?;
+                            eval_inc(envir, inc)?;
                             continue
-                        },
-                        lit => {
-                            increment.evaluate(envir)?;
-                            lit
                         }
+                        lit => lit
                     };
-                    if result.is_flow_control_literal() { break; }
+
+                    if result.is_flow_control_literal() {
+                        return Ok(result)
+                    }
+
+                    eval_inc(envir, inc)?;
                 }
 
-                envir.leave_scope();
-
-                if result.is_flow_control_literal() {
-                    Ok(result)
-                } else {
+                fn eval_inc(envir: &mut Environment<Literal>, inc: &Option<Box<Exp>>) -> Result<Literal, Error> {
+                    if let Some(exp) = inc {
+                        exp.evaluate(envir)?;
+                    };
                     Ok(Unit)
                 }
+
+                Ok(Unit)
             },
             FunCallExp(id, args, _) => {
                 // Retrieve closure and function

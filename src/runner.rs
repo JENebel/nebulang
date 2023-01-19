@@ -43,6 +43,7 @@ pub fn run_program(input: String, args: Vec<String>) -> Result<(Literal, RunStat
             return Err(err)
         }
     };
+    //println!("{program:?}");
 
     if let Err(err) = program.type_check(&mut Environment::new(fun_store.clone()), &mut TypeContext::new()) {
         return Err(err)

@@ -15,12 +15,12 @@ Small interpreted language with static types and lexical scoping implemented in 
     - [Let](#let)
     - [If](#if)
     - [Functions](#functions)
+    - [Return](#return)
     - [Arrays](#arrays)
     - [Loops](#loops)
+      - [Loop](#loop)
       - [While](#while)
       - [For](#for)
-    - [Flow control](#flow-control)
-      - [Return](#return)
       - [Break](#break)
       - [Continue](#continue)
 
@@ -89,7 +89,14 @@ If the **.nbl** extension is used, there is no need for the extension when runni
 
 ### Keywords
 
-    let, if, else, while, for, fun, of, return, break, continue
+These are all reserved and cannnot be used as variable names
+
+[let](#let)\
+[if](#if), [else](#if)\
+[loop](#loop), [while](#while), [for](#for)\
+[fun](#functions)\
+[of](#arrays)\
+[return](#return), [break](#break), [continue](#continue)
 
 ### Types
 
@@ -180,6 +187,18 @@ Type annotations for return types look like this:
 
     fun foo(a: int): int = a * 2
 
+### Return
+
+Early returns are possible with a 'return' statement.
+
+    fun add(n: int) = {
+        if(n < 0) return 0;
+
+        // Other functionality
+    }
+
+Return statements can also be placed outside of functions, to return from the program itself. All returning paths in a function must match the type of the implicitly returned value. In the program itself, there is no requirement for matching return types.
+
 ### Arrays
 
 Arrays are initialized as follows:
@@ -222,10 +241,22 @@ An example use in a function:
 
 ### Loops
 
+#### Loop
+
+The simplest loop is just an infinite loop
+
+    loop {
+        // Something
+        break;
+    }
+
+The loop will run until an explicit '[break](#break)' statement is met, so use with caution.
+
+The other loop types are just syntactic sugar on top of loop.
+
 #### While
 
-A while loop always returns unit.\
-Here is an example of a while loop:
+While loops run as long as the condition is true:
 
     let i = 0;
     while(i < 10) {
@@ -237,13 +268,13 @@ Here is an example of a while loop:
 There are 2 ways to make a for loop.\
 The simplest is just repeating something n times, where n is an int:
 
-    for([n]) {
+    for(n) {
         // Repeats n times
     }
 
 Often we need a more flexible for loop. The general syntax is as follows:
 
-    for([id] = [from]; [condition]; [increment]) [body]
+    for(id = from; condition; increment) body
 
 In practice:
 
@@ -252,20 +283,6 @@ In practice:
     }
 
 Condition must evaluate to a boolean, but increment can be any expression. Body does not need to be surrounded by brackets if it is a single statement/expression.
-
-### Flow control
-
-#### Return
-
-Early returns are possible with a 'return' statement.
-
-    fun add(n: int) = {
-        if(n < 0) return 0;
-
-        // Other functionality
-    }
-
-Return statements can also be placed outside of functions, to return from the program itself. All returning paths in a function must match the type of the implicitly returned value. In the program itself, there is no requirement for matching return types.
 
 #### Break
 

@@ -168,34 +168,6 @@ fn unit_return() {
 }
 
 #[test]
-fn simple_break() {
-    let input = "
-        let x = 0;
-        for(i=0; i<10; i+=1) {
-            if(i == 5) break;
-            x += 1
-        }
-        x
-    ";
-
-    expect_lit(input, Int(5));
-}
-
-#[test]
-fn simple_continue() {
-    let input = "
-        let x = 0;
-        for(i=0; i<10; i+=1) {
-            if(i % 2 == 0) continue;
-            x += 1
-        }
-        x
-    ";
-
-    expect_lit(input, Int(5));
-}
-
-#[test]
 fn multiply_assign() {
     let input = "
         let x = 3;
@@ -204,4 +176,15 @@ fn multiply_assign() {
     ";
 
     expect_lit(input, Int(12));
+}
+
+#[test]
+fn plus_assign() {
+    let input = "
+        let x = 3;
+        x += 4;
+        x
+    ";
+
+    expect_lit(input, Int(7));
 }

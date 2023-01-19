@@ -19,11 +19,8 @@ pub enum Exp {
     /// (var-id, loc)
     VarExp(String, Location),
 
-    /// (condition, body, loc)
-    WhileExp(Box<Exp>, Box<Exp>, Location),
-
-    /// (let_exp, cond_exp, inc_exp, body, loc)
-    ForExp(Box<Exp>, Box<Exp>, Box<Exp>, Box<Exp>, Location),
+    /// (body, finally(increment), loc)
+    LoopExp(Box<Exp>, Option<Box<Exp>>, Location),
 
     /// (id, value, loc)
     LetExp(String, Box<Exp>, Location),
@@ -416,10 +413,9 @@ impl Display for Exp {
                     None => format!("if({cond}) {pos};"),
                 },
                 Exp::LetExp(id, exp, _) =>  format!("let {id} = {exp};"),
-                Exp::WhileExp(cond, exp, _) => format!("while({cond})  {exp}"),
+                Exp::LoopExp(exp, _, _) => format!("loop {{{exp}}}"), // Not showing the inc exp TODO
                 Exp::FunCallExp(_, _, _) => format!("FunCall"), //TODO
                 Exp::FunDeclExp(_, _) => format!("FunDecl"),    //TODO
-                Exp::ForExp(_, _, _, _, _) => format!("For"),   //TODO
                 Exp::AccessArrayExp(arr_exp, index_exp, _,) => format!("{arr_exp}[{index_exp}]"),
                 Exp::InitTemplateArrayExp(length, template, _,) => format!("[{length} of {template}]"),
                 Exp::InitArrayWithValuesExp(values, _,) => {
@@ -480,6 +476,30 @@ impl Operator {
             Self::DivideAssign => Self::Divide,
             Self::MultiplyAssign => Self::Multiply,
             op => *op
+        }
+    }
+}
+
+impl Exp {
+    pub fn loc(&self) -> Location {
+        match self {
+            Exp::BinOpExp(_, _, _, loc) |
+            Exp::UnOpExp(_, _, loc) |
+            Exp::LiteralExp(_, loc) |
+            Exp::VarExp(_, loc) |
+            Exp::LoopExp(_, _, loc) |
+            Exp::LetExp(_, _, loc) |
+            Exp::IfElseExp(_, _, _, loc) |
+            Exp::BlockExp(_, _, loc) |
+            Exp::FunCallExp(_, _, loc) |
+            Exp::FunDeclExp(_, loc) |
+            Exp::InitTemplateArrayExp(_, _, loc) |
+            Exp::InitArrayWithValuesExp(_, loc) |
+            Exp::AccessArrayExp(_, _, loc) |
+            Exp::ReturnExp(_, loc) |
+            Exp::BreakExp(loc) |
+            Exp::ContinueExp(loc) 
+                => *loc
         }
     }
 }
