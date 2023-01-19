@@ -1,5 +1,5 @@
 use std::{rc::Rc, cell::RefCell, fmt::Display};
-use crate::ast::*;
+use crate::definitions::*;
 
 pub type FunStore = Rc<RefCell<Vec<Rc<RefCell<Box<Function>>>>>>;
 type NodeRef<T> = Rc<RefCell<EnvNode<T>>>;

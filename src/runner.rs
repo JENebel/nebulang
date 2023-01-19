@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::ast::*;
+use crate::definitions::*;
 use crate::lexer::*;
 use crate::parser::*;
 use crate::environment::*;

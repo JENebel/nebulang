@@ -1,9 +1,9 @@
 mod common;
 
 use common::*;
-use nebulang::ast::Literal::*;
-use nebulang::ast::ErrorType::*;
-use nebulang::ast::Type;
+use nebulang::definitions::Literal::*;
+use nebulang::definitions::ErrorType::*;
+use nebulang::definitions::Type;
 
 #[test]
 fn array_initialization() {

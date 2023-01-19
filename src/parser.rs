@@ -1,13 +1,12 @@
 use std::{iter::Peekable, slice::Iter, cell::RefCell, rc::Rc};
 use lazy_static::lazy_static;
 
-use crate::ast::*;
+use crate::definitions::*;
 use crate::lexer::*;
 use crate::environment::*;
-use crate::ast as ast;
 
 use LexToken::*;
-use ast::Operator::*;
+use crate::definitions::Operator::*;
 
 type LexIter<'a> = Peekable<Iter<'a, (LexToken, Location)>>;
 type KeepRes = Result<Exp, Error>;
@@ -16,7 +15,7 @@ type DiscardRes = Result<(), Error>;
 #[derive(Clone, Debug)]
 enum Term {
     ExpTerm(Exp),
-    OpTerm(ast::Operator, Location)
+    OpTerm(Operator, Location)
 }
 
 lazy_static!(//                                                  for
@@ -29,13 +28,13 @@ lazy_static!(//                                                  for
     ///All legal types
     pub static ref TYPES: Vec<&'static str> = Vec::from(["int", "float", "bool", "char", "string", "unit"]);
 
-    pub static ref UNARY_OPERATORS: Vec<ast::Operator> = vec![
+    pub static ref UNARY_OPERATORS: Vec<Operator> = vec![
         Minus,
         Not
     ];
 
     //Precedence of binary operators
-    pub static ref BINARY_OP_PRECEDENCE: Vec<Vec<ast::Operator>> = vec![
+    pub static ref BINARY_OP_PRECEDENCE: Vec<Vec<Operator>> = vec![
         //Binary
         vec![Multiply, Divide, Modulo],  
         vec![Plus, Minus],
@@ -147,7 +146,7 @@ fn parse_expression(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
 
     // Collect terms
     while !terminator(lexed) {
-        if let Some((Operator(_), loc)) = lexed.peek() {
+        if let Some((OperatorToken(_), loc)) = lexed.peek() {
             terms.push(Term::OpTerm(parse_any_operator(lexed)?, *loc))
         } else {
             match parse_term(lexed, fun_store)? {
@@ -357,7 +356,7 @@ fn parse_for(lexed: &mut LexIter, fun_store: &mut FunStore) -> KeepRes {
     } else {
         // Simple for loop
         let_exp =  Exp::LetExp(format!(".for").clone(), Box::new(Exp::LiteralExp(Literal::Int(0), loc)), loc);
-        cond_exp = Exp::BinOpExp(Box::new(Exp::VarExp(format!(".for"), loc)), ast::Operator::LessThan, Box::new(parse_expression(lexed, fun_store)?), loc);
+        cond_exp = Exp::BinOpExp(Box::new(Exp::VarExp(format!(".for"), loc)), Operator::LessThan, Box::new(parse_expression(lexed, fun_store)?), loc);
         let new_value = Exp::BinOpExp(Box::new(Exp::VarExp(format!(".for"), loc)), Plus, Box::new(Exp::LiteralExp(Literal::Int(1), loc)), loc);
         inc_exp = Exp::BinOpExp(Box::new(Exp::VarExp(format!(".for"), loc)), Assign, Box::new(new_value), loc);
         parse_parenthesis(lexed, ')')?;
@@ -400,29 +399,29 @@ fn parse_parenthesized_exp(lexed: &mut LexIter, fun_store: &mut FunStore) -> Kee
 }
 
 /// Parses any operator
-fn parse_any_operator(lexed: &mut LexIter) -> Result<ast::Operator, Error> {
+fn parse_any_operator(lexed: &mut LexIter) -> Result<Operator, Error> {
     match lexed.peek() {
-        Some((LexToken::Operator(op), loc)) => {
+        Some((LexToken::OperatorToken(op), loc)) => {
             let res = match *op {
-                "+" => ast::Operator::Plus,
-                "-" => ast::Operator::Minus,
-                "*" => ast::Operator::Multiply,
-                "/" => ast::Operator::Divide,
-                "%" => ast::Operator::Modulo,
-                "<" => ast::Operator::LessThan,
-                ">" => ast::Operator::GreaterThan,
-                "<=" => ast::Operator::LessOrEquals,
-                ">=" => ast::Operator::GreaterOrEquals,
-                "!" => ast::Operator::Not,
-                "==" => ast::Operator::Equals,
-                "=" => ast::Operator::Assign,
-                "+=" => ast::Operator::PlusAssign,
-                "-=" => ast::Operator::MinusAssign,
-                "/=" => ast::Operator::DivideAssign,
-                "*=" => ast::Operator::MultiplyAssign,
-                "&&" => ast::Operator::And,
-                "||" => ast::Operator::Or,
-                "!=" => ast::Operator::NotEquals,
+                "+" => Operator::Plus,
+                "-" => Operator::Minus,
+                "*" => Operator::Multiply,
+                "/" => Operator::Divide,
+                "%" => Operator::Modulo,
+                "<" => Operator::LessThan,
+                ">" => Operator::GreaterThan,
+                "<=" => Operator::LessOrEquals,
+                ">=" => Operator::GreaterOrEquals,
+                "!" => Operator::Not,
+                "==" => Operator::Equals,
+                "=" => Operator::Assign,
+                "+=" => Operator::PlusAssign,
+                "-=" => Operator::MinusAssign,
+                "/=" => Operator::DivideAssign,
+                "*=" => Operator::MultiplyAssign,
+                "&&" => Operator::And,
+                "||" => Operator::Or,
+                "!=" => Operator::NotEquals,
                 _ => return Err(Error::new(ErrorType::SyntaxError, format!("Unknown operator: '{op}'."), *loc))
             };
             lexed.next();
@@ -433,7 +432,7 @@ fn parse_any_operator(lexed: &mut LexIter) -> Result<ast::Operator, Error> {
 }
 
 /// Parses a specific operator
-fn parse_operator(lexed: &mut LexIter, operator: ast::Operator) -> Result<ast::Operator, Error> {
+fn parse_operator(lexed: &mut LexIter, operator: Operator) -> Result<Operator, Error> {
     match parse_any_operator(lexed) {
         Ok(actual) => if actual == operator {
             Ok(actual)
@@ -518,7 +517,7 @@ fn parse_fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp,
     let return_type = if let Ok(_) = parse_colon(lexed) {
         parse_any_type(lexed)?
     } else {
-        ast::Type::Any
+        Type::Any
     };
 
     parse_operator(lexed, Assign)?;
@@ -526,7 +525,7 @@ fn parse_fun_decl(lexed: &mut LexIter, fun_store: &mut FunStore) -> Result<(Exp,
     let exp = parse_statement(lexed, fun_store)?;
 
     let func = Function {
-        annotated: return_type != ast::Type::Any,
+        annotated: return_type != Type::Any,
         ret_type: return_type,
         param_types: p_types,
         params,
@@ -577,16 +576,16 @@ fn parse_array_init_or_acces(lexed: &mut LexIter, fun_store: &mut FunStore) -> K
 }
 
 /// Parses next token and converts to an ast-type
-fn parse_any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
+fn parse_any_type(lexed: &mut LexIter) -> Result<Type, Error> {
     match lexed.peek() {
-        Some((Type(typ), loc)) => {
+        Some((TypeToken(typ), loc)) => {
             let typ = match *typ {
-                "int" => ast::Type::Int,
-                "float" => ast::Type::Float,
-                "bool" => ast::Type::Bool,
-                "char" => ast::Type::Char,
-                "string" => ast::Type::Str,
-                "unit" => ast::Type::Unit,
+                "int" => Type::Int,
+                "float" => Type::Float,
+                "bool" => Type::Bool,
+                "char" => Type::Char,
+                "string" => Type::Str,
+                "unit" => Type::Unit,
 
                 _ => return Err(Error::new(ErrorType::SyntaxError, format!("Unknown type."), *loc))
             };
@@ -597,7 +596,7 @@ fn parse_any_type(lexed: &mut LexIter) -> Result<ast::Type, Error> {
             lexed.next();
             let element_type = parse_any_type(lexed)?;
             parse_parenthesis(lexed, ']')?;
-            Ok(ast::Type::Array(Box::new(element_type)))
+            Ok(Type::Array(Box::new(element_type)))
         }
         _ => Err(Error::new(ErrorType::SyntaxError, format!("Expected a type."), curr_loc(lexed)?))
     }

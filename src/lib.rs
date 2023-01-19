@@ -1,6 +1,6 @@
 pub mod runner;
 pub mod lexer;
-pub mod ast;
+pub mod definitions;
 pub mod parser;
 pub mod eval;
 pub mod type_checker;

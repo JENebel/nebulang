@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::definitions::*;
 use crate::environment::*;
 
 use Literal::*;
@@ -222,7 +222,7 @@ impl<'a> Exp {
                     lits.push(args[i].evaluate(envir)?);
                 }
 
-                //If it is not declared, it takes the most recent scope from decl scope
+                // If it is not declared, it takes the most recent scope from decl scope
                 let mut res: Literal = if !closure.declared {
                     let mut renv = envir.get_scope(closure.decl_scope());
                     for i in 0..args.len() {

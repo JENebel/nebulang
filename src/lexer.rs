@@ -1,6 +1,6 @@
 use std::{iter::Peekable, fmt::Display};
 use lazy_static::*;
-use crate::{parser::*, ast::{Error, ErrorType::*}};
+use crate::{parser::*, definitions::{Error, ErrorType::*}};
 
 ///Lexer token
 #[derive(Debug)]
@@ -11,9 +11,9 @@ pub enum LexToken {
     Colon,
     Comma,
 
-    Operator(&'static str),
+    OperatorToken(&'static str),
     Keyword(&'static str),
-    Type(&'static str),
+    TypeToken(&'static str),
     Id(String),
 
     //Literals
@@ -110,7 +110,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, Error> {
                 program.push(LexToken::Keyword(kwd), loc);
             } else if let Some(typ) = TYPES.iter().find(|typ| typ.to_string() == name) {
                 //It is a type annotation
-                program.push(LexToken::Type(typ), loc);
+                program.push(LexToken::TypeToken(typ), loc);
             } else {
                 //It is not a keyword
                 program.push(LexToken::Id(name), loc)
@@ -144,7 +144,7 @@ pub fn lex(input: &str) -> Result<LexedProgram, Error> {
                 }
             //Normal operator
             } else {
-                program.push(LexToken::Operator(op), loc);
+                program.push(LexToken::OperatorToken(op), loc);
             }
             continue
         }

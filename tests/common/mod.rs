@@ -1,4 +1,4 @@
-use nebulang::{ast::{Literal, ErrorType, Type}, runner::*};
+use nebulang::{definitions::{Literal, ErrorType, Type}, runner::*};
 
 #[allow(dead_code)]
 pub fn expect_lit(input: &'static str, expected: Literal) {

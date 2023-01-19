@@ -1,8 +1,8 @@
 mod common;
 
 use common::*;
-use nebulang::ast::Literal::*;
-use nebulang::ast::ErrorType::*;
+use nebulang::definitions::Literal::*;
+use nebulang::definitions::ErrorType::*;
 
 #[test]
 fn simple_return() {
