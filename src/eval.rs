@@ -117,11 +117,7 @@ impl<'a> Exp {
                     },
                     _ => unreachable!("Not a variable id")
                 },
-                PlusAssign | MinusAssign | DivideAssign | MultiplyAssign => {
-                    // Lots of clone() here, maybe not good, but seems pretty quick
-                    let new_val = Exp::BinOpExp(left.clone(), op.strip_assign(), right.clone(), *loc).evaluate(envir)?;
-                    Ok(BinOpExp(left.clone(), Assign, Box::new(LiteralExp(new_val, *loc)), *loc).evaluate(envir)?)
-                },
+                PlusAssign | MinusAssign | DivideAssign | MultiplyAssign => unreachable!("Sugared out in parser"),
                 Not => unreachable!("Not a binary operator: '{op}'")
             },
             UnOpExp(op, exp, _) => match op {

@@ -202,11 +202,18 @@ fn establish_precedence(terms: &[Term]) -> KeepRes {
             if let (i, Term::OpTerm(op, loc)) = term {
                 if operators.contains(op) && i != 0 {
                     let split = terms.split_at(i);
-                    return Ok(Exp::BinOpExp(
-                        Box::new(establish_precedence(split.0)?), 
-                        *op, 
-                        Box::new(establish_precedence(&split.1[1..])?), *loc)
-                    );
+
+                    let left = Box::new(establish_precedence(split.0)?);
+                    let right = Box::new(establish_precedence(&split.1[1..])?);
+                    
+                    return Ok(if op.strip_assign() != *op {
+                        // OperatorAssign sugar
+                        let new_value = Box::new(Exp::BinOpExp(left.clone(), op.strip_assign(), right, *loc));
+                        Exp::BinOpExp(left, Assign, new_value, *loc)
+                    } else {
+                        // Regular BinOpExp
+                        Exp::BinOpExp(left, *op, right, *loc)
+                    })
                 }
             }
         }

@@ -479,7 +479,7 @@ impl Operator {
             Self::MinusAssign => Self::Minus,
             Self::DivideAssign => Self::Divide,
             Self::MultiplyAssign => Self::Multiply,
-            _ => panic!("Not an OperatorAssign operator")
+            op => *op
         }
     }
 }
